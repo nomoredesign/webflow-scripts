@@ -35,13 +35,13 @@ function initTypewriter() {
     .type-line-2.tw-hidden,
     .type-line-3.tw-hidden {
       opacity: 0;
-      transform: translateX(0.5em);
+      transform: translateY(0.5em);
     }
     .type-line-1.tw-visible,
     .type-line-2.tw-visible,
     .type-line-3.tw-visible {
       opacity: 1;
-      transform: translateX(0);
+      transform: translateY(0);
     }
   `;
   document.head.appendChild(style);
