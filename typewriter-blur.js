@@ -22,15 +22,18 @@ function initTypewriter() {
     document.querySelector(".type-line-3"),
   ];
 
-  // Inject styles — blur and opacity transition tied to a CSS variable
-  // so we can drive them smoothly as typing progresses
   const style = document.createElement("style");
   style.textContent = `
-    .type-line-1,
-    .type-line-2,
-    .type-line-3 {
+    .tw-char {
       display: inline-block;
-      transition: opacity 0.15s ease, filter 0.15s ease;
+      opacity: 0;
+      filter: blur(8px);
+      transition: opacity 0.4s ease, filter 0.4s ease;
+      white-space: pre;
+    }
+    .tw-char.tw-in {
+      opacity: 1;
+      filter: blur(0px);
     }
   `;
   document.head.appendChild(style);
@@ -43,16 +46,32 @@ function initTypewriter() {
   let currentIndices = [0, 0, 0];
   let isDeleting = false;
 
-  // Max blur at 0 chars, 0 blur when fully typed
-  const maxBlur = 8; // px
+  // Rebuild the span children for a target to match the new phrase
+  function buildChars(target, charArray) {
+    target.innerHTML = "";
+    charArray.forEach((ch) => {
+      const span = document.createElement("span");
+      span.className = "tw-char";
+      span.textContent = ch;
+      target.appendChild(span);
+    });
+  }
 
-  function applyBlur(target, charsTyped, totalChars) {
-    if (!target) return;
-    const progress = totalChars === 0 ? 1 : charsTyped / totalChars;
-    const blur     = maxBlur * (1 - progress);
-    const opacity  = 0.2 + 0.8 * progress; // fade from 0.2 → 1 as it types in
-    target.style.filter  = `blur(${blur.toFixed(2)}px)`;
-    target.style.opacity = opacity.toFixed(3);
+  // Show char at index i (fade+blur in)
+  function showChar(target, i) {
+    const span = target.children[i];
+    if (span) {
+      // rAF ensures the initial state is painted before the transition fires
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => span.classList.add("tw-in"));
+      });
+    }
+  }
+
+  // Hide char at index i (fade+blur out)
+  function hideChar(target, i) {
+    const span = target.children[i];
+    if (span) span.classList.remove("tw-in");
   }
 
   function typeEffect() {
@@ -63,6 +82,13 @@ function initTypewriter() {
     ];
 
     const currentPhrases = rawPhrases.map((str) => [...str]);
+
+    // Rebuild DOM if we're starting a new cycle (all indices at 0, not deleting)
+    if (!isDeleting && currentIndices.every((v) => v === 0)) {
+      targets.forEach((target, i) => {
+        if (target) buildChars(target, currentPhrases[i]);
+      });
+    }
 
     targets.forEach((target, i) => {
       if (!target) return;
@@ -75,16 +101,15 @@ function initTypewriter() {
         if (i === 2 && currentIndices[1] === currentPhrases[1].length) canType = true;
 
         if (canType && currentIndices[i] < fullTextArray.length) {
+          showChar(target, currentIndices[i]);
           currentIndices[i]++;
         }
       } else {
         if (currentIndices[i] > 0) {
           currentIndices[i]--;
+          hideChar(target, currentIndices[i]);
         }
       }
-
-      target.textContent = fullTextArray.slice(0, currentIndices[i]).join("");
-      applyBlur(target, currentIndices[i], fullTextArray.length);
     });
 
     let nextTimeout = isDeleting ? eraseSpeed : typeSpeed;
