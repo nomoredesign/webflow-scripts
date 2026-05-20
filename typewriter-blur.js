@@ -26,14 +26,18 @@ function initTypewriter() {
   style.textContent = `
     .tw-char {
       display: inline-block;
+      overflow: hidden;
+      width: 0;
       opacity: 0;
       filter: blur(8px);
-      transition: opacity 0.4s ease, filter 0.4s ease;
+      transition: opacity 0.4s ease, filter 0.4s ease, width 0.1s ease;
       white-space: pre;
+      vertical-align: bottom;
     }
     .tw-char.tw-in {
       opacity: 1;
       filter: blur(0px);
+      /* width is set inline to the character's natural width */
     }
   `;
   document.head.appendChild(style);
@@ -46,7 +50,6 @@ function initTypewriter() {
   let currentIndices = [0, 0, 0];
   let isDeleting = false;
 
-  // Rebuild the span children for a target to match the new phrase
   function buildChars(target, charArray) {
     target.innerHTML = "";
     charArray.forEach((ch) => {
@@ -57,21 +60,29 @@ function initTypewriter() {
     });
   }
 
-  // Show char at index i (fade+blur in)
   function showChar(target, i) {
     const span = target.children[i];
-    if (span) {
-      // rAF ensures the initial state is painted before the transition fires
+    if (!span) return;
+    // Measure natural width before it's visible
+    span.style.width = "auto";
+    span.style.overflow = "visible";
+    const naturalWidth = span.getBoundingClientRect().width;
+    span.style.width = "0";
+    span.style.overflow = "hidden";
+
+    requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => span.classList.add("tw-in"));
+        span.classList.add("tw-in");
+        span.style.width = naturalWidth + "px";
       });
-    }
+    });
   }
 
-  // Hide char at index i (fade+blur out)
   function hideChar(target, i) {
     const span = target.children[i];
-    if (span) span.classList.remove("tw-in");
+    if (!span) return;
+    span.classList.remove("tw-in");
+    span.style.width = "0";
   }
 
   function typeEffect() {
@@ -83,7 +94,6 @@ function initTypewriter() {
 
     const currentPhrases = rawPhrases.map((str) => [...str]);
 
-    // Rebuild DOM if we're starting a new cycle (all indices at 0, not deleting)
     if (!isDeleting && currentIndices.every((v) => v === 0)) {
       targets.forEach((target, i) => {
         if (target) buildChars(target, currentPhrases[i]);
