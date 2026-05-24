@@ -33,6 +33,7 @@
     span.textContent = char;
     span.style.cssText =
       'display:inline-block;' +
+      'vertical-align:baseline;' +
       'white-space:pre;' +
       'max-width:0;' +
       'opacity:0;' +
@@ -82,7 +83,7 @@
         nodes.push(document.createTextNode(token));
       } else {
         var wrapper = document.createElement('span');
-        wrapper.style.cssText = 'display:inline;white-space:nowrap;';
+        wrapper.style.cssText = 'display:inline;white-space:nowrap;vertical-align:baseline;';
         for (var c = 0; c < token.length; c++) {
           var ch = makeCharSpan(token[c]);
           wrapper.appendChild(ch);
@@ -110,6 +111,7 @@
       'position:absolute;' +
       'left:0;top:0;' +
       'display:inline-block;' +
+      'vertical-align:baseline;' +
       'white-space:pre;' +
       'opacity:0;' +
       'filter:blur(6px);' +
@@ -130,6 +132,7 @@
     span.textContent = ')';
     span.style.cssText =
       'display:inline-block;' +
+      'vertical-align:baseline;' +
       'white-space:pre;' +
       'max-width:0;' +
       'overflow:hidden;' +
