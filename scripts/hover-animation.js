@@ -16,11 +16,11 @@
   'use strict';
 
   // ─── Timing constants ────────────────────────────────────────────────────────
-  var CHAR_STAGGER_MS    = 22;   // Delay between each character animation start
-  var TRANSITION_MS      = 300;  // CSS transition duration per character (ms)
-  var PAREN_DURATION_MS  = 350;  // Parenthesis fade duration (ms)
-  var INITIAL_DELAY_MS   = 1500; // Touch: pause before first auto-cycle
-  var HOLD_MS            = 1500; // Touch: how long alternate text stays visible
+  var CHAR_STAGGER_MS   = 22;   // Delay between each character animation start
+  var TRANSITION_MS     = 300;  // CSS transition duration per character (ms)
+  var PAREN_DURATION_MS = 350;  // Parenthesis fade duration (ms)
+  var INITIAL_DELAY_MS  = 1500; // Touch: pause before first auto-cycle
+  var HOLD_MS           = 1500; // Touch: how long alternate text stays visible
 
   // ─── Touch detection ─────────────────────────────────────────────────────────
   var isTouch = navigator.maxTouchPoints > 0;
@@ -28,78 +28,18 @@
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
   /**
-   * Build character spans for a string.
-   * Each word's characters are wrapped in a white-space:nowrap inline span
-   * so the browser can break between words but never mid-word.
-   * Returns a flat array of all character spans (for animation targeting).
-   */
-  function buildCharSpans(text) {
-    var allSpans = [];
-
-    // Split into tokens: words and the spaces between them
-    var tokens = text.match(/\S+|\s+/g) || [];
-
-    for (var t = 0; t < tokens.length; t++) {
-      var token = tokens[t];
-      var isSpace = /^\s+$/.test(token);
-
-      if (isSpace) {
-        // Spaces: one span per space character, sits outside the nowrap wrapper
-        for (var s = 0; s < token.length; s++) {
-          var spaceSpan = document.createElement('span');
-          spaceSpan.textContent      = token[s];
-          spaceSpan.style.display    = 'inline-block';
-          spaceSpan.style.whiteSpace = 'pre';
-          spaceSpan.style.maxWidth   = '0';
-          spaceSpan.style.opacity    = '0';
-          spaceSpan.style.filter     = 'blur(6px)';
-          spaceSpan.style.transform  = 'translateY(3px)';
-          spaceSpan.style.overflow   = 'hidden';
-          spaceSpan.style.transition =
-            'opacity '   + TRANSITION_MS + 'ms ease, ' +
-            'filter '    + TRANSITION_MS + 'ms ease, ' +
-            'transform ' + TRANSITION_MS + 'ms ease, ' +
-            'max-width ' + TRANSITION_MS + 'ms ease';
-          allSpans.push(spaceSpan);
-        }
-      } else {
-        // Word: wrap all its char spans in a nowrap container
-        var wordWrapper = document.createElement('span');
-        wordWrapper.style.display    = 'inline';
-        wordWrapper.style.whiteSpace = 'nowrap';
-
-        for (var c = 0; c < token.length; c++) {
-          var charSpan = document.createElement('span');
-          charSpan.textContent      = token[c];
-          charSpan.style.display    = 'inline-block';
-          charSpan.style.whiteSpace = 'pre';
-          charSpan.style.maxWidth   = '0';
-          charSpan.style.opacity    = '0';
-          charSpan.style.filter     = 'blur(6px)';
-          charSpan.style.transform  = 'translateY(3px)';
-          charSpan.style.overflow   = 'hidden';
-          charSpan.style.transition =
-            'opacity '   + TRANSITION_MS + 'ms ease, ' +
-            'filter '    + TRANSITION_MS + 'ms ease, ' +
-            'transform ' + TRANSITION_MS + 'ms ease, ' +
-            'max-width ' + TRANSITION_MS + 'ms ease';
-          wordWrapper.appendChild(charSpan);
-          allSpans.push(charSpan);
-        }
-      }
-    }
-
-    return allSpans;
-  }
-
-  /**
-   * Same as buildCharSpans but also returns the wrapper elements so the
-   * caller can append them to the DOM (rather than the spans directly).
-   * Returns { spans, nodes } where nodes is what gets appended to the parent.
+   * Build character spans for a string, grouped by word.
+   * Each word's chars sit inside a white-space:nowrap wrapper so the browser
+   * can break between words but never mid-word.
+   * Space characters are individual spans outside the word wrappers.
+   *
+   * Returns { spans, nodes }
+   *   spans — flat array of all char spans (for animation)
+   *   nodes — array of DOM nodes to append to the headline element
    */
   function buildTextNodes(text) {
     var allSpans = [];
-    var domNodes = []; // what to appendChild onto the headline element
+    var domNodes = [];
 
     var tokens = text.match(/\S+|\s+/g) || [];
 
@@ -109,54 +49,45 @@
 
       if (isSpace) {
         for (var s = 0; s < token.length; s++) {
-          var spaceSpan = document.createElement('span');
-          spaceSpan.textContent      = token[s];
-          spaceSpan.style.display    = 'inline-block';
-          spaceSpan.style.whiteSpace = 'pre';
-          spaceSpan.style.maxWidth   = '0';
-          spaceSpan.style.opacity    = '0';
-          spaceSpan.style.filter     = 'blur(6px)';
-          spaceSpan.style.transform  = 'translateY(3px)';
-          spaceSpan.style.overflow   = 'hidden';
-          spaceSpan.style.transition =
-            'opacity '   + TRANSITION_MS + 'ms ease, ' +
-            'filter '    + TRANSITION_MS + 'ms ease, ' +
-            'transform ' + TRANSITION_MS + 'ms ease, ' +
-            'max-width ' + TRANSITION_MS + 'ms ease';
-          allSpans.push(spaceSpan);
-          domNodes.push(spaceSpan);
+          var sp = makeCharSpan(' ');
+          allSpans.push(sp);
+          domNodes.push(sp);
         }
       } else {
-        var wordWrapper = document.createElement('span');
-        wordWrapper.style.display    = 'inline';
-        wordWrapper.style.whiteSpace = 'nowrap';
-
+        var wrapper = document.createElement('span');
+        wrapper.style.cssText = 'display:inline; white-space:nowrap;';
         for (var c = 0; c < token.length; c++) {
-          var charSpan = document.createElement('span');
-          charSpan.textContent      = token[c];
-          charSpan.style.display    = 'inline-block';
-          charSpan.style.whiteSpace = 'pre';
-          charSpan.style.maxWidth   = '0';
-          charSpan.style.opacity    = '0';
-          charSpan.style.filter     = 'blur(6px)';
-          charSpan.style.transform  = 'translateY(3px)';
-          charSpan.style.overflow   = 'hidden';
-          charSpan.style.transition =
-            'opacity '   + TRANSITION_MS + 'ms ease, ' +
-            'filter '    + TRANSITION_MS + 'ms ease, ' +
-            'transform ' + TRANSITION_MS + 'ms ease, ' +
-            'max-width ' + TRANSITION_MS + 'ms ease';
-          wordWrapper.appendChild(charSpan);
-          allSpans.push(charSpan);
+          var ch = makeCharSpan(token[c]);
+          wrapper.appendChild(ch);
+          allSpans.push(ch);
         }
-        domNodes.push(wordWrapper);
+        domNodes.push(wrapper);
       }
     }
 
     return { spans: allSpans, nodes: domNodes };
   }
 
-  /** Show a character span */
+  /** Create a single hidden animated character span */
+  function makeCharSpan(char) {
+    var span = document.createElement('span');
+    span.textContent = char;
+    span.style.cssText =
+      'display:inline-block;' +
+      'white-space:pre;' +
+      'max-width:0;' +
+      'opacity:0;' +
+      'filter:blur(6px);' +
+      'transform:translateY(3px);' +
+      'overflow:hidden;' +
+      'transition:' +
+        'opacity '   + TRANSITION_MS + 'ms ease,' +
+        'filter '    + TRANSITION_MS + 'ms ease,' +
+        'transform ' + TRANSITION_MS + 'ms ease,' +
+        'max-width ' + TRANSITION_MS + 'ms ease;';
+    return span;
+  }
+
   function showSpan(span) {
     span.style.maxWidth  = '2em';
     span.style.opacity   = '1';
@@ -164,7 +95,6 @@
     span.style.transform = 'translateY(0)';
   }
 
-  /** Hide a character span */
   function hideSpan(span) {
     span.style.maxWidth  = '0';
     span.style.opacity   = '0';
@@ -173,48 +103,51 @@
   }
 
   /**
-   * Build the opening paren span.
-   * Uses a negative left margin equal to its own rendered width so it
-   * overlaps into the margin and never displaces the text to the right.
-   * The span itself has width:0 / overflow:hidden so it takes no layout space.
+   * Opening paren — absolutely positioned so it never affects text flow.
+   * The headline element gets position:relative as an anchor.
+   * The paren floats to the left of the text's left edge.
    */
-  function buildOpenParen() {
+  function buildOpenParen(el) {
+    // Ensure the headline is the positioning context
+    el.style.position = 'relative';
+
     var span = document.createElement('span');
-    span.textContent         = '(';
-    span.style.display       = 'inline-block';
-    span.style.whiteSpace    = 'pre';
-    span.style.width         = '0';
-    span.style.overflow      = 'visible'; // render outside its zero box
-    span.style.marginLeft    = '-0.6em';  // pull into left margin
-    span.style.opacity       = '0';
-    span.style.filter        = 'blur(6px)';
-    span.style.transform     = 'translateY(3px)';
-    span.style.transition    =
-      'opacity '   + PAREN_DURATION_MS + 'ms ease, ' +
-      'filter '    + PAREN_DURATION_MS + 'ms ease, ' +
-      'transform ' + PAREN_DURATION_MS + 'ms ease';
+    span.textContent = '(';
+    span.style.cssText =
+      'position:absolute;' +
+      'left:-0.55em;' +       // sit just outside the text's left edge
+      'top:0;' +
+      'display:inline-block;' +
+      'white-space:pre;' +
+      'opacity:0;' +
+      'filter:blur(6px);' +
+      'transform:translateY(3px);' +
+      'transition:' +
+        'opacity '   + PAREN_DURATION_MS + 'ms ease,' +
+        'filter '    + PAREN_DURATION_MS + 'ms ease,' +
+        'transform ' + PAREN_DURATION_MS + 'ms ease;';
     return span;
   }
 
   /**
-   * Build the closing paren span.
-   * Uses max-width collapse so it takes no space when invisible.
+   * Closing paren — inline, collapses to zero width when hidden.
    */
   function buildCloseParen() {
     var span = document.createElement('span');
-    span.textContent      = ')';
-    span.style.display    = 'inline-block';
-    span.style.whiteSpace = 'pre';
-    span.style.maxWidth   = '0';
-    span.style.overflow   = 'hidden';
-    span.style.opacity    = '0';
-    span.style.filter     = 'blur(6px)';
-    span.style.transform  = 'translateY(3px)';
-    span.style.transition =
-      'opacity '   + PAREN_DURATION_MS + 'ms ease, ' +
-      'filter '    + PAREN_DURATION_MS + 'ms ease, ' +
-      'transform ' + PAREN_DURATION_MS + 'ms ease, ' +
-      'max-width ' + PAREN_DURATION_MS + 'ms ease';
+    span.textContent = ')';
+    span.style.cssText =
+      'display:inline-block;' +
+      'white-space:pre;' +
+      'max-width:0;' +
+      'overflow:hidden;' +
+      'opacity:0;' +
+      'filter:blur(6px);' +
+      'transform:translateY(3px);' +
+      'transition:' +
+        'opacity '   + PAREN_DURATION_MS + 'ms ease,' +
+        'filter '    + PAREN_DURATION_MS + 'ms ease,' +
+        'transform ' + PAREN_DURATION_MS + 'ms ease,' +
+        'max-width ' + PAREN_DURATION_MS + 'ms ease;';
     return span;
   }
 
@@ -223,7 +156,6 @@
     span.style.filter    = 'blur(0px)';
     span.style.transform = 'translateY(0)';
   }
-
   function hideOpenParen(span) {
     span.style.opacity   = '0';
     span.style.filter    = 'blur(6px)';
@@ -236,7 +168,6 @@
     span.style.filter    = 'blur(0px)';
     span.style.transform = 'translateY(0)';
   }
-
   function hideCloseParen(span) {
     span.style.maxWidth  = '0';
     span.style.opacity   = '0';
@@ -244,7 +175,6 @@
     span.style.transform = 'translateY(3px)';
   }
 
-  /** Total time to animate N chars at the stagger rate */
   function animDuration(numChars) {
     return numChars * CHAR_STAGGER_MS + TRANSITION_MS;
   }
@@ -254,37 +184,33 @@
   function initElement(el) {
     var defaultText   = el.getAttribute('data-hover-headline') || '';
     var alternateText = el.getAttribute('data-hover-alternate') || '';
-
     if (!defaultText || !alternateText) return;
 
-    // Clear existing content
     el.innerHTML = '';
 
-    // Build parens
-    var openParen  = buildOpenParen();
+    var openParen  = buildOpenParen(el);
     var closeParen = buildCloseParen();
 
-    // Build text nodes (word-wrapped) and char span arrays
     var defaultResult = buildTextNodes(defaultText);
     var altResult     = buildTextNodes(alternateText);
     var defaultSpans  = defaultResult.spans;
     var altSpans      = altResult.spans;
 
-    // DOM order: openParen | defaultNodes | altNodes | closeParen
+    // DOM: openParen | defaultNodes | altNodes | closeParen
     el.appendChild(openParen);
     defaultResult.nodes.forEach(function (n) { el.appendChild(n); });
     altResult.nodes.forEach(function (n) { el.appendChild(n); });
     el.appendChild(closeParen);
 
-    // Show default text immediately (no animation on load)
+    // Show default text immediately, no animation on load
     defaultSpans.forEach(function (s) {
       s.style.transition = 'none';
       showSpan(s);
       void s.offsetWidth;
       s.style.transition =
-        'opacity '   + TRANSITION_MS + 'ms ease, ' +
-        'filter '    + TRANSITION_MS + 'ms ease, ' +
-        'transform ' + TRANSITION_MS + 'ms ease, ' +
+        'opacity '   + TRANSITION_MS + 'ms ease,' +
+        'filter '    + TRANSITION_MS + 'ms ease,' +
+        'transform ' + TRANSITION_MS + 'ms ease,' +
         'max-width ' + TRANSITION_MS + 'ms ease';
     });
 
@@ -319,12 +245,11 @@
         })(j);
       }
 
-      var totalTime = dissolveTime + animDuration(altLen);
       setTimeout(function () {
         shown = 'alternate';
         busy  = false;
         if (onDone) onDone();
-      }, totalTime);
+      }, dissolveTime + animDuration(altLen));
     }
 
     // alternate → default
@@ -358,12 +283,11 @@
         hideCloseParen(closeParen);
       }, defaultInTime);
 
-      var totalTime = defaultInTime + PAREN_DURATION_MS;
       setTimeout(function () {
         shown = 'default';
         busy  = false;
         if (onDone) onDone();
-      }, totalTime);
+      }, defaultInTime + PAREN_DURATION_MS);
     }
 
     // Desktop
