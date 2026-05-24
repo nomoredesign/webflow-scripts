@@ -83,7 +83,7 @@
         nodes.push(document.createTextNode(token));
       } else {
         var wrapper = document.createElement('span');
-        wrapper.style.cssText = 'display:inline;white-space:nowrap;vertical-align:baseline;';
+        wrapper.style.cssText = 'display:inline;white-space:nowrap;vertical-align:baseline;line-height:inherit;';
         for (var c = 0; c < token.length; c++) {
           var ch = makeCharSpan(token[c]);
           wrapper.appendChild(ch);
@@ -182,7 +182,7 @@
 
     // Text container — only the ACTIVE text's nodes live here at any time
     var textContainer = document.createElement('span');
-    textContainer.style.cssText = 'display:inline;';
+    textContainer.style.cssText = 'display:inline;line-height:inherit;';
     el.appendChild(textContainer);
 
     // Close paren sits right after the text container, always trailing active text
