@@ -132,9 +132,10 @@ Then update the `src` in Webflow with the new SHA.
 
 ```
 /
-├── CLAUDE.md                  ← this file
+├── CLAUDE.md                        ← this file
 └── scripts/
-    └── hero-animation.js      ← the animation script
+    ├── hero-animation.js            ← CMS-driven cycling headline animation
+    └── hover-animation.js           ← hover/touch blur-fade headline switcher
 ```
 
 ---
@@ -156,3 +157,101 @@ Then update the `src` in Webflow with the new SHA.
   container.
 - Debug logging is prefixed with `[hero]` — check the browser console if
   something stops working.
+---
+
+## `scripts/hover-animation.js` — Hover headline blur-fade animation
+
+### What it does
+
+Targets any element with `[data-hover-headline]` and `[data-hover-alternate]`
+attributes. On desktop, `mouseenter` triggers a blur-fade transition from the
+default text to the alternate text; `mouseleave` reverses it. On touch devices
+the animation auto-cycles continuously.
+
+### HTML attribute convention
+
+```html
+<h1 data-hover-headline="Great design and development, made simple."
+    data-hover-alternate="One designer. Every detail.">
+  Great design and development, made simple.
+</h1>
+```
+
+| Attribute               | Purpose                                    |
+|-------------------------|--------------------------------------------|
+| `data-hover-headline`   | Default text (shown on load, shown at rest)|
+| `data-hover-alternate`  | Text shown on hover / during touch cycle   |
+
+Multiple elements on the same page are each initialised independently.
+
+### Animation sequence
+
+**Desktop — `mouseenter` (default → alternate)**
+1. Opening `(` and closing `)` blur-fade in simultaneously
+2. Default text dissolves character by character **right → left**
+3. Alternate text types in character by character **left → right**
+
+**Desktop — `mouseleave` (alternate → default)**
+1. Alternate text dissolves **right → left**
+2. Default text types back in **left → right**
+3. Parentheses blur-fade out
+
+**Touch — auto-cycle** (repeats indefinitely)
+- Starts after a 1.5 s initial delay
+- default → alternate → hold 1.5 s → default → hold → repeat
+
+### Animation timing values
+
+| Constant          | Value  | Purpose                                          |
+|-------------------|--------|--------------------------------------------------|
+| `CHAR_STAGGER_MS` | `22ms` | Delay between each character's animation start  |
+| `TRANSITION_MS`   | `300ms`| CSS transition duration per character            |
+| `PAREN_DURATION_MS`| `350ms`| Parenthesis fade duration                       |
+| `HOLD_MS`         |`1500ms`| Touch: hold time while alternate text is visible |
+| `INITIAL_DELAY_MS`|`1500ms`| Touch: pause before first cycle starts           |
+
+### Character span style
+
+Each character is wrapped in an `inline-block` `<span>` with `white-space: pre`
+and `max-width: 2em`. Hidden state: `opacity: 0`, `filter: blur(6px)`,
+`transform: translateY(3px)`, `max-width: 0`.
+
+### Parenthesis style
+
+- Opening `(`: permanent `margin-left: -1em` so it takes no layout space when
+  invisible; no `max-width` collapse needed.
+- Closing `)`: collapses via `max-width: 0 → 2em` when toggling visibility.
+- Both transition on `opacity`, `filter`, and `transform` over `350ms`.
+
+### Touch detection
+
+```js
+var isTouch = navigator.maxTouchPoints > 0;
+```
+
+### Re-trigger guard
+
+A `busy` flag per element prevents the animation from being re-triggered while
+already in progress.
+
+### Embedding in Webflow
+
+Loaded via a `<script>` tag in **Site Settings → Custom Code → Footer Code**.
+
+#### ⚠️ Always use a commit SHA — never `@main`
+
+jsDelivr caches `@main` aggressively. Pin to a specific commit SHA.
+
+**Current script tag (commit `7dd7b278`):**
+```html
+<script src="https://cdn.jsdelivr.net/gh/nomoredesign/webflow-scripts@7dd7b278c88006ffe244ce8140941c29d62486d7/scripts/hover-animation.js"></script>
+```
+
+After every push, get the new SHA with:
+```bash
+curl -s -H "Authorization: token YOUR_TOKEN" \
+  "https://api.github.com/repos/nomoredesign/webflow-scripts/commits?path=scripts/hover-animation.js&per_page=1" \
+  | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['sha'])"
+```
+
+Then update the `src` in Webflow with the new SHA.
