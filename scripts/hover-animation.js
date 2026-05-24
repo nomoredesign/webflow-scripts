@@ -210,39 +210,6 @@
         'max-width ' + TRANSITION_MS + 'ms ease';
     });
 
-    // Measure both text states and lock min-height to the tallest.
-    // Runs post-layout (via double-rAF in boot) so offsetHeight is reliable.
-    (function lockHeight() {
-      var defaultHeight = el.offsetHeight;
-
-      // Temporarily render alt text to measure it
-      while (textContainer.firstChild) textContainer.removeChild(textContainer.firstChild);
-      var altMeasure = buildNodes(alternateText);
-      altMeasure.nodes.forEach(function (n) { textContainer.appendChild(n); });
-      altMeasure.spans.forEach(function (s) {
-        s.style.transition = 'none';
-        showSpan(s);
-      });
-      void el.offsetHeight; // force reflow
-      var altHeight = el.offsetHeight;
-
-      // Restore default text
-      while (textContainer.firstChild) textContainer.removeChild(textContainer.firstChild);
-      defResult.nodes.forEach(function (n) { textContainer.appendChild(n); });
-      defSpans.forEach(function (s) {
-        s.style.transition = 'none';
-        showSpan(s);
-        void s.offsetWidth;
-        s.style.transition =
-          'opacity '   + TRANSITION_MS + 'ms ease,' +
-          'filter '    + TRANSITION_MS + 'ms ease,' +
-          'transform ' + TRANSITION_MS + 'ms ease,' +
-          'max-width ' + TRANSITION_MS + 'ms ease';
-      });
-
-      el.style.minHeight = Math.max(defaultHeight, altHeight) + 'px';
-    })();
-
     var busy  = false;
     var shown = 'default';
 
@@ -360,18 +327,10 @@
     }
   }
 
-  function initWhenReady() {
-    // requestAnimationFrame ensures the browser has completed a layout pass
-    // before we measure element heights for min-height locking
-    requestAnimationFrame(function () {
-      requestAnimationFrame(init); // double-rAF for reliable post-layout timing
-    });
-  }
-
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initWhenReady);
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-    initWhenReady();
+    init();
   }
 
 })();
