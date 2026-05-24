@@ -16,11 +16,11 @@
   'use strict';
 
   // ─── Timing constants ────────────────────────────────────────────────────────
-  var CHAR_STAGGER_MS   = 22;   // Delay between each character animation start
-  var TRANSITION_MS     = 300;  // CSS transition duration per character (ms)
-  var PAREN_DURATION_MS = 350;  // Parenthesis fade duration (ms)
-  var INITIAL_DELAY_MS  = 1500; // Touch: pause before first auto-cycle
-  var HOLD_MS           = 1500; // Touch: how long alternate text stays visible
+  var CHAR_STAGGER_MS    = 22;   // Delay between each character animation start
+  var TRANSITION_MS      = 300;  // CSS transition duration per character (ms)
+  var PAREN_DURATION_MS  = 350;  // Parenthesis fade duration (ms)
+  var INITIAL_DELAY_MS   = 1500; // Touch: pause before first auto-cycle
+  var HOLD_MS            = 1500; // Touch: how long alternate text stays visible
 
   // ─── Touch detection ─────────────────────────────────────────────────────────
   var isTouch = navigator.maxTouchPoints > 0;
@@ -29,24 +29,23 @@
 
   /**
    * Wrap each character of a string in an animated <span>.
-   * Space characters use white-space:pre so they are preserved.
+   * Returns an array of spans; caller appends them inside a no-wrap wrapper.
    */
   function buildCharSpans(text) {
     var spans = [];
     for (var i = 0; i < text.length; i++) {
-      var ch = text[i];
       var span = document.createElement('span');
-      span.textContent = ch;
-      span.style.display        = 'inline-block';
-      span.style.whiteSpace     = 'pre';
-      span.style.maxWidth       = '0';
-      span.style.opacity        = '0';
-      span.style.filter         = 'blur(6px)';
-      span.style.transform      = 'translateY(3px)';
-      span.style.overflow       = 'hidden';
-      span.style.transition     =
-        'opacity ' + TRANSITION_MS + 'ms ease, ' +
-        'filter '  + TRANSITION_MS + 'ms ease, ' +
+      span.textContent = text[i];
+      span.style.display    = 'inline-block';
+      span.style.whiteSpace = 'pre';
+      span.style.maxWidth   = '0';
+      span.style.opacity    = '0';
+      span.style.filter     = 'blur(6px)';
+      span.style.transform  = 'translateY(3px)';
+      span.style.overflow   = 'hidden';
+      span.style.transition =
+        'opacity '   + TRANSITION_MS + 'ms ease, ' +
+        'filter '    + TRANSITION_MS + 'ms ease, ' +
         'transform ' + TRANSITION_MS + 'ms ease, ' +
         'max-width ' + TRANSITION_MS + 'ms ease';
       spans.push(span);
@@ -54,7 +53,7 @@
     return spans;
   }
 
-  /** Show a character span (animate in) */
+  /** Show a character span */
   function showSpan(span) {
     span.style.maxWidth  = '2em';
     span.style.opacity   = '1';
@@ -62,7 +61,7 @@
     span.style.transform = 'translateY(0)';
   }
 
-  /** Hide a character span (animate out) */
+  /** Hide a character span */
   function hideSpan(span) {
     span.style.maxWidth  = '0';
     span.style.opacity   = '0';
@@ -71,56 +70,42 @@
   }
 
   /**
-   * Build a parenthesis span with collapsed width by default.
-   * @param {string} char   '(' or ')'
-   * @param {boolean} isOpen  true = opening paren (negative left margin)
+   * Build a parenthesis span.
+   * Both parens use max-width collapse so neither affects layout when invisible.
    */
-  function buildParenSpan(char, isOpen) {
+  function buildParenSpan(char) {
     var span = document.createElement('span');
-    span.textContent = char;
-    span.style.display        = 'inline-block';
-    span.style.whiteSpace     = 'pre';
-    span.style.opacity        = '0';
-    span.style.filter         = 'blur(6px)';
-    span.style.transform      = 'translateY(3px)';
-    span.style.transition     =
-      'opacity ' + PAREN_DURATION_MS + 'ms ease, ' +
-      'filter '  + PAREN_DURATION_MS + 'ms ease, ' +
+    span.textContent      = char;
+    span.style.display    = 'inline-block';
+    span.style.whiteSpace = 'pre';
+    span.style.maxWidth   = '0';
+    span.style.opacity    = '0';
+    span.style.filter     = 'blur(6px)';
+    span.style.transform  = 'translateY(3px)';
+    span.style.overflow   = 'hidden';
+    span.style.transition =
+      'opacity '   + PAREN_DURATION_MS + 'ms ease, ' +
+      'filter '    + PAREN_DURATION_MS + 'ms ease, ' +
       'transform ' + PAREN_DURATION_MS + 'ms ease, ' +
       'max-width ' + PAREN_DURATION_MS + 'ms ease';
-
-    if (isOpen) {
-      // Opening paren: always rendered but pulled left so it takes no layout space
-      span.style.marginLeft = '-1em';
-    } else {
-      // Closing paren: collapse its width when hidden
-      span.style.maxWidth  = '0';
-      span.style.overflow  = 'hidden';
-    }
-
     return span;
   }
 
-  /** Fade in a parenthesis */
-  function showParen(span, isOpen) {
+  function showParen(span) {
+    span.style.maxWidth  = '2em';
     span.style.opacity   = '1';
     span.style.filter    = 'blur(0px)';
     span.style.transform = 'translateY(0)';
-    if (!isOpen) span.style.maxWidth = '2em';
   }
 
-  /** Fade out a parenthesis */
-  function hideParen(span, isOpen) {
+  function hideParen(span) {
+    span.style.maxWidth  = '0';
     span.style.opacity   = '0';
     span.style.filter    = 'blur(6px)';
     span.style.transform = 'translateY(3px)';
-    if (!isOpen) span.style.maxWidth = '0';
   }
 
-  /**
-   * Calculate the total animation duration for dissolving N chars
-   * at the given stagger, plus one transition window.
-   */
+  /** Total time to animate N chars at the stagger rate */
   function animDuration(numChars) {
     return numChars * CHAR_STAGGER_MS + TRANSITION_MS;
   }
@@ -133,43 +118,45 @@
 
     if (!defaultText || !alternateText) return;
 
+    // Prevent the headline from wrapping mid-word
+    el.style.whiteSpace = 'nowrap';
+
     // Clear existing content
     el.innerHTML = '';
 
-    // Build opening paren
-    var openParen  = buildParenSpan('(', true);
-    // Build default text spans
-    var defaultSpans = buildCharSpans(defaultText);
-    // Build closing paren
-    var closeParen = buildParenSpan(')', false);
-    // Build alternate text spans (hidden initially)
-    var altSpans   = buildCharSpans(alternateText);
+    // Build parens
+    var openParen  = buildParenSpan('(');
+    var closeParen = buildParenSpan(')');
 
-    // Append: openParen | defaultSpans | closeParen | altSpans
-    // altSpans sit hidden in the DOM, ready to swap in
+    // Build char span arrays
+    var defaultSpans = buildCharSpans(defaultText);
+    var altSpans     = buildCharSpans(alternateText);
+
+    // ── DOM order: openParen | defaultSpans | altSpans | closeParen ──────────
+    // Closing paren always sits at the end of whichever text is visible,
+    // so it never jumps when the hidden text group collapses.
     el.appendChild(openParen);
     defaultSpans.forEach(function (s) { el.appendChild(s); });
-    el.appendChild(closeParen);
     altSpans.forEach(function (s) { el.appendChild(s); });
+    el.appendChild(closeParen);
 
-    // Show default text immediately (no animation on load)
+    // Show default text immediately without animating on load
     defaultSpans.forEach(function (s) {
       s.style.transition = 'none';
       showSpan(s);
-      // Force reflow then restore transition
-      void s.offsetWidth;
+      void s.offsetWidth; // force reflow
       s.style.transition =
-        'opacity ' + TRANSITION_MS + 'ms ease, ' +
-        'filter '  + TRANSITION_MS + 'ms ease, ' +
+        'opacity '   + TRANSITION_MS + 'ms ease, ' +
+        'filter '    + TRANSITION_MS + 'ms ease, ' +
         'transform ' + TRANSITION_MS + 'ms ease, ' +
         'max-width ' + TRANSITION_MS + 'ms ease';
     });
 
-    var busy   = false;
-    var shown  = 'default'; // 'default' | 'alternate'
+    var busy  = false;
+    var shown = 'default'; // 'default' | 'alternate'
 
     /**
-     * Transition: default → alternate
+     * default → alternate
      * 1. Parens fade in
      * 2. Default dissolves R→L
      * 3. Alternate types in L→R
@@ -178,14 +165,13 @@
       if (busy) return;
       busy = true;
 
-      // Step 1: fade in parens
-      showParen(openParen, true);
-      showParen(closeParen, false);
+      showParen(openParen);
+      showParen(closeParen);
 
       var defaultLen = defaultSpans.length;
       var altLen     = altSpans.length;
 
-      // Step 2: dissolve default R→L
+      // Dissolve default R→L
       for (var i = 0; i < defaultLen; i++) {
         (function (idx) {
           setTimeout(function () {
@@ -194,7 +180,7 @@
         })(i);
       }
 
-      // Step 3: type in alternate L→R (start after default fully gone)
+      // Type in alternate L→R after default fully gone
       var dissolveTime = animDuration(defaultLen);
       for (var j = 0; j < altLen; j++) {
         (function (idx) {
@@ -213,7 +199,7 @@
     }
 
     /**
-     * Transition: alternate → default
+     * alternate → default
      * 1. Alternate dissolves R→L
      * 2. Default types in L→R
      * 3. Parens fade out
@@ -225,7 +211,7 @@
       var defaultLen = defaultSpans.length;
       var altLen     = altSpans.length;
 
-      // Step 1: dissolve alternate R→L
+      // Dissolve alternate R→L
       for (var i = 0; i < altLen; i++) {
         (function (idx) {
           setTimeout(function () {
@@ -234,7 +220,7 @@
         })(i);
       }
 
-      // Step 2: type in default L→R
+      // Type in default L→R after alternate fully gone
       var dissolveTime = animDuration(altLen);
       for (var j = 0; j < defaultLen; j++) {
         (function (idx) {
@@ -244,11 +230,11 @@
         })(j);
       }
 
-      // Step 3: fade out parens (after default fully visible)
+      // Fade out parens after default fully visible
       var defaultInTime = dissolveTime + animDuration(defaultLen);
       setTimeout(function () {
-        hideParen(openParen, true);
-        hideParen(closeParen, false);
+        hideParen(openParen);
+        hideParen(closeParen);
       }, defaultInTime);
 
       var totalTime = defaultInTime + PAREN_DURATION_MS;
@@ -264,7 +250,6 @@
       el.addEventListener('mouseenter', function () {
         if (shown === 'default') toAlternate();
       });
-
       el.addEventListener('mouseleave', function () {
         if (shown === 'alternate') toDefault();
       });
@@ -281,7 +266,6 @@
           }, HOLD_MS);
         });
       }
-
       setTimeout(cycle, INITIAL_DELAY_MS);
     }
   }
