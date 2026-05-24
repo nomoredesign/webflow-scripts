@@ -8,10 +8,23 @@ Always read it at the start of any session before touching any code.
 ## What the script does
 
 `scripts/hero-animation.js` drives the animated headline on the nomoredesign 2026
-landing page. Three `<h1>` elements each contain a single word that cycles through
-a CMS-driven word bank. One line cycles at a time in a fixed rotation
-(line 1 → line 2 → line 3 → line 1 → …). Each transition uses a per-character
-blur-fade effect: characters leave the screen right-to-left and arrive left-to-right.
+landing page. Three `<h1>` elements each contain a static word and a cycling word
+in parentheses. The cycling word animates through a CMS-driven word bank with a
+per-character blur-fade effect.
+
+### Sequence per cycle
+1. Line 1 animated word fades in (left → right character stagger)
+2. Line 2 animated word fades in
+3. Line 3 animated word fades in
+4. All three lines hold together for 1.5 seconds
+5. All three lines fade out simultaneously (right → left character stagger)
+6. Repeat from 1 with the next word in each bank
+
+### Font sizing
+On load (and on window resize), the script measures the container width against
+the longest possible full line string across all three lines, then sets `font-size`
+on all three `<h1>` elements so the longest line fills the container exactly
+without wrapping. Resize is debounced at 100ms.
 
 ---
 
@@ -73,34 +86,45 @@ Three hidden collection lists (one per `line` option) render all available words
 
 ## Animation timing values
 
-| Constant          | Value   | Purpose                                          |
-|-------------------|---------|--------------------------------------------------|
-| `CHAR_STAGGER_MS` | `22ms`  | Delay between each character's animation start  |
-| `TRANSITION_MS`   | `300ms` | CSS transition duration per character            |
-| `WORD_HOLD_MS`    | `1000ms`| How long the new word stays visible before the next cycle |
-| `INITIAL_DELAY_MS`| `1500ms`| Pause after page load before animation starts   |
+| Constant          | Value    | Purpose                                           |
+|-------------------|----------|---------------------------------------------------|
+| `CHAR_STAGGER_MS` | `22ms`   | Delay between each character's animation start   |
+| `TRANSITION_MS`   | `300ms`  | CSS transition duration per character             |
+| `HOLD_MS`         | `1500ms` | How long all three lines stay visible together    |
+| `INITIAL_DELAY_MS`| `1500ms` | Pause after page load before animation starts     |
 
 ### Out animation (right → left)
-
 Each character transitions to: `opacity: 0`, `filter: blur(6px)`, `max-width: 0`,
 `transform: translateY(-4px)`.
 
 ### In animation (left → right)
-
 Each character transitions to: `opacity: 1`, `filter: blur(0px)`, `max-width: 2em`,
 `transform: translateY(0)`.
 
 ---
 
-## Where the code is embedded in Webflow
+## Embedding in Webflow
 
-The script is pasted into **Site Settings → Custom Code → Footer Code** (or the
-equivalent per-page embed block on the home page). It runs after the DOM is ready
-via a `DOMContentLoaded` listener with an `init()` fallback for already-loaded
-documents.
+The script is loaded via a `<script>` tag in **Site Settings → Custom Code → Footer Code**.
 
-The hidden CMS collection lists must be present in the DOM **before** the script
-runs so that `collectWords()` can populate the word banks on initialisation.
+### ⚠️ Always use a commit SHA — never `@main`
+
+jsDelivr caches `@main` aggressively and the purge tool is unreliable. Always pin
+to a specific commit SHA to guarantee the latest version is served immediately.
+
+**Current working script tag:**
+```html
+<script src="https://cdn.jsdelivr.net/gh/nomoredesign/webflow-scripts@e196bcfed184185e2fc759ee2139e88fc92e885e/scripts/hero-animation.js"></script>
+```
+
+After every push, get the new commit SHA with:
+```bash
+curl -s -H "Authorization: token YOUR_TOKEN" \
+  "https://api.github.com/repos/nomoredesign/webflow-scripts/commits?path=scripts/hero-animation.js&per_page=1" \
+  | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['sha'])"
+```
+
+Then update the `src` in Webflow with the new SHA.
 
 ---
 
@@ -120,9 +144,15 @@ runs so that `collectWords()` can populate the word banks on initialisation.
 - Do **not** alter `CHAR_STAGGER_MS` or `TRANSITION_MS` without re-testing on
   mobile — the stagger total (`chars × 22ms`) can exceed the perceived hold time
   on very long words.
-- The script is self-contained (no dependencies) and uses an IIFE to avoid
-  polluting the global scope.
+- The script is self-contained (no dependencies) and uses a named function
+  (`initHeroAnimation`) to avoid polluting the global scope.
 - Word banks are collected once on init. If CMS words change after page load,
   a full reload is required.
 - `indices` tracks the current word position per line independently, so all three
-  lines can be at different positions in their word banks at any time.
+  lines advance through their word banks at the same pace but can be at different
+  positions.
+- The font sizer walks up the DOM from the first `<h1>` to find the nearest
+  ancestor wider than the `<h1>` itself — no custom attribute needed on the
+  container.
+- Debug logging is prefixed with `[hero]` — check the browser console if
+  something stops working.
