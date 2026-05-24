@@ -6,8 +6,14 @@
  * On desktop: mouseenter/mouseleave triggers the transition.
  * On touch devices: auto-cycles after an initial 1.5s delay.
  *
+ * The <h1> (or whatever element carries the data attributes) must have
+ * position: relative set in CSS so the absolutely-positioned opening
+ * parenthesis anchors correctly.
+ *
  * HTML usage:
- *   <h1 data-hover-headline="Default text here." data-hover-alternate="Alternate text.">
+ *   <h1 style="position:relative"
+ *       data-hover-headline="Default text here."
+ *       data-hover-alternate="Alternate text.">
  *     Default text here.
  *   </h1>
  */
@@ -68,7 +74,7 @@
 
       if (isSpace) {
         for (var s = 0; s < token.length; s++) {
-          var sp = makeCharSpan('\u00a0'); // non-breaking space preserves width
+          var sp = makeCharSpan(' ');
           allSpans.push(sp);
           domNodes.push(sp);
         }
@@ -102,32 +108,33 @@
   }
 
   /**
-   * Opening paren — zero-width inline element.
-   * display:inline-block; width:0; overflow:visible means it renders
-   * visually but takes no layout space whatsoever. The text never moves.
-   * A negative margin pulls the rendered glyph to the left of the text edge.
+   * Opening paren — absolutely positioned, appended LAST in the DOM so it
+   * has zero influence on the inline flow or line box of the text.
+   * Anchors to the nearest position:relative ancestor (the headline element).
+   * left:0 / top:0 aligns to the text's top-left corner; translateX pulls it
+   * into the left margin without touching layout.
    */
   function buildOpenParen() {
     var span = document.createElement('span');
     span.textContent = '(';
     span.style.cssText =
+      'position:absolute;' +
+      'left:0;' +
+      'top:0;' +
+      'transform:translateX(-100%) translateY(3px);' +
       'display:inline-block;' +
-      'width:0;' +
-      'overflow:visible;' +
       'white-space:pre;' +
-      'margin-left:-0.55em;' +  // visual offset only — no layout impact
       'opacity:0;' +
       'filter:blur(6px);' +
-      'transform:translateY(3px);' +
       'transition:' +
-        'opacity '   + PAREN_DURATION_MS + 'ms ease,' +
-        'filter '    + PAREN_DURATION_MS + 'ms ease,' +
-        'transform ' + PAREN_DURATION_MS + 'ms ease;';
+        'opacity '    + PAREN_DURATION_MS + 'ms ease,' +
+        'filter '     + PAREN_DURATION_MS + 'ms ease,' +
+        'transform '  + PAREN_DURATION_MS + 'ms ease;';
     return span;
   }
 
   /**
-   * Closing paren — collapses to zero width when hidden.
+   * Closing paren — inline, collapses to zero width when hidden.
    */
   function buildCloseParen() {
     var span = document.createElement('span');
@@ -151,12 +158,13 @@
   function showOpenParen(span) {
     span.style.opacity   = '1';
     span.style.filter    = 'blur(0px)';
-    span.style.transform = 'translateY(0)';
+    // keep translateX(-100%) but lift the Y offset
+    span.style.transform = 'translateX(-100%) translateY(0)';
   }
   function hideOpenParen(span) {
     span.style.opacity   = '0';
     span.style.filter    = 'blur(6px)';
-    span.style.transform = 'translateY(3px)';
+    span.style.transform = 'translateX(-100%) translateY(3px)';
   }
 
   function showCloseParen(span) {
@@ -193,11 +201,12 @@
     var defaultSpans  = defaultResult.spans;
     var altSpans      = altResult.spans;
 
-    // DOM: openParen | defaultNodes | altNodes | closeParen
-    el.appendChild(openParen);
+    // DOM: defaultNodes | altNodes | closeParen | openParen
+    // openParen is LAST so it is fully out of the inline flow
     defaultResult.nodes.forEach(function (n) { el.appendChild(n); });
     altResult.nodes.forEach(function (n) { el.appendChild(n); });
     el.appendChild(closeParen);
+    el.appendChild(openParen); // absolutely positioned, appended last
 
     // Show default text immediately, no animation on load
     defaultSpans.forEach(function (s) {
