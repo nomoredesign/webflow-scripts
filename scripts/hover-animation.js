@@ -27,47 +27,6 @@
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-  /**
-   * Build character spans for a string, grouped by word.
-   * Each word's chars sit inside a white-space:nowrap wrapper so the browser
-   * can break between words but never mid-word.
-   * Space characters are individual spans outside the word wrappers.
-   *
-   * Returns { spans, nodes }
-   *   spans — flat array of all char spans (for animation)
-   *   nodes — array of DOM nodes to append to the headline element
-   */
-  function buildTextNodes(text) {
-    var allSpans = [];
-    var domNodes = [];
-
-    var tokens = text.match(/\S+|\s+/g) || [];
-
-    for (var t = 0; t < tokens.length; t++) {
-      var token   = tokens[t];
-      var isSpace = /^\s+$/.test(token);
-
-      if (isSpace) {
-        for (var s = 0; s < token.length; s++) {
-          var sp = makeCharSpan(' ');
-          allSpans.push(sp);
-          domNodes.push(sp);
-        }
-      } else {
-        var wrapper = document.createElement('span');
-        wrapper.style.cssText = 'display:inline; white-space:nowrap;';
-        for (var c = 0; c < token.length; c++) {
-          var ch = makeCharSpan(token[c]);
-          wrapper.appendChild(ch);
-          allSpans.push(ch);
-        }
-        domNodes.push(wrapper);
-      }
-    }
-
-    return { spans: allSpans, nodes: domNodes };
-  }
-
   /** Create a single hidden animated character span */
   function makeCharSpan(char) {
     var span = document.createElement('span');
@@ -88,6 +47,46 @@
     return span;
   }
 
+  /**
+   * Build character spans for a string, grouped by word.
+   * Each word's chars sit inside a white-space:nowrap wrapper so the browser
+   * can break between words but never mid-word.
+   * Spaces are individual spans outside the word wrappers.
+   *
+   * Returns { spans, nodes }
+   *   spans — flat array of all char spans (for animation)
+   *   nodes — DOM nodes to append to the headline element
+   */
+  function buildTextNodes(text) {
+    var allSpans = [];
+    var domNodes = [];
+    var tokens   = text.match(/\S+|\s+/g) || [];
+
+    for (var t = 0; t < tokens.length; t++) {
+      var token   = tokens[t];
+      var isSpace = /^\s+$/.test(token);
+
+      if (isSpace) {
+        for (var s = 0; s < token.length; s++) {
+          var sp = makeCharSpan('\u00a0'); // non-breaking space preserves width
+          allSpans.push(sp);
+          domNodes.push(sp);
+        }
+      } else {
+        var wrapper = document.createElement('span');
+        wrapper.style.cssText = 'display:inline;white-space:nowrap;';
+        for (var c = 0; c < token.length; c++) {
+          var ch = makeCharSpan(token[c]);
+          wrapper.appendChild(ch);
+          allSpans.push(ch);
+        }
+        domNodes.push(wrapper);
+      }
+    }
+
+    return { spans: allSpans, nodes: domNodes };
+  }
+
   function showSpan(span) {
     span.style.maxWidth  = '2em';
     span.style.opacity   = '1';
@@ -103,22 +102,20 @@
   }
 
   /**
-   * Opening paren — absolutely positioned so it never affects text flow.
-   * The headline element gets position:relative as an anchor.
-   * The paren floats to the left of the text's left edge.
+   * Opening paren — zero-width inline element.
+   * display:inline-block; width:0; overflow:visible means it renders
+   * visually but takes no layout space whatsoever. The text never moves.
+   * A negative margin pulls the rendered glyph to the left of the text edge.
    */
-  function buildOpenParen(el) {
-    // Ensure the headline is the positioning context
-    el.style.position = 'relative';
-
+  function buildOpenParen() {
     var span = document.createElement('span');
     span.textContent = '(';
     span.style.cssText =
-      'position:absolute;' +
-      'left:-0.55em;' +       // sit just outside the text's left edge
-      'top:0;' +
       'display:inline-block;' +
+      'width:0;' +
+      'overflow:visible;' +
       'white-space:pre;' +
+      'margin-left:-0.55em;' +  // visual offset only — no layout impact
       'opacity:0;' +
       'filter:blur(6px);' +
       'transform:translateY(3px);' +
@@ -130,7 +127,7 @@
   }
 
   /**
-   * Closing paren — inline, collapses to zero width when hidden.
+   * Closing paren — collapses to zero width when hidden.
    */
   function buildCloseParen() {
     var span = document.createElement('span');
@@ -188,7 +185,7 @@
 
     el.innerHTML = '';
 
-    var openParen  = buildOpenParen(el);
+    var openParen  = buildOpenParen();
     var closeParen = buildCloseParen();
 
     var defaultResult = buildTextNodes(defaultText);
