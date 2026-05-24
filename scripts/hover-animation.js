@@ -55,30 +55,33 @@
   /**
    * Build DOM nodes and a flat char-span array for a text string.
    *
-   * Structure per token:
-   *   - Word  → <span style="white-space:nowrap"> wrapping per-char spans
-   *   - Space → plain text node (browser collapses it at line ends naturally)
+   * Words  → <span style="white-space:nowrap"> wrapping per-char spans
+   * Spaces → <span class="space-node"> containing a plain text node.
+   *           Space spans are NOT animated but can be shown/hidden instantly
+   *           via display:none so they never appear while their text is hidden.
    *
-   * Spaces are NOT animated — they appear/disappear instantly as their
-   * surrounding words animate. This ensures trailing spaces on wrapped lines
-   * never push subsequent lines out of alignment.
-   *
-   * Returns { spans, nodes }
-   *   spans — flat array of animated char spans (for show/hide calls)
-   *   nodes — DOM nodes to append to the headline element
+   * Returns { spans, nodes, spaceNodes }
+   *   spans      — flat array of animated char spans (letters only)
+   *   nodes      — DOM nodes to append to the headline element
+   *   spaceNodes — the space wrapper spans (for show/hide in sync)
    */
   function buildTextNodes(text) {
-    var allSpans = [];
-    var domNodes = [];
-    var tokens   = text.match(/\S+|\s+/g) || [];
+    var allSpans  = [];
+    var domNodes  = [];
+    var spaceNodes = [];
+    var tokens    = text.match(/\S+|\s+/g) || [];
 
     for (var t = 0; t < tokens.length; t++) {
       var token   = tokens[t];
       var isSpace = /^\s+$/.test(token);
 
       if (isSpace) {
-        // Plain text node — browser handles collapsing at line breaks
-        domNodes.push(document.createTextNode(token));
+        // Wrap space in a span so we can toggle display:none when text is hidden
+        var spaceWrapper = document.createElement('span');
+        spaceWrapper.style.cssText = 'display:none;white-space:pre;';
+        spaceWrapper.textContent   = token;
+        spaceNodes.push(spaceWrapper);
+        domNodes.push(spaceWrapper);
       } else {
         var wrapper = document.createElement('span');
         wrapper.style.cssText = 'display:inline;white-space:nowrap;';
@@ -91,7 +94,7 @@
       }
     }
 
-    return { spans: allSpans, nodes: domNodes };
+    return { spans: allSpans, nodes: domNodes, spaceNodes: spaceNodes };
   }
 
   function showSpan(span) {
@@ -106,6 +109,18 @@
     span.style.opacity   = '0';
     span.style.filter    = 'blur(6px)';
     span.style.transform = 'translateY(3px)';
+  }
+
+  function showSpaces(spaceNodes) {
+    for (var i = 0; i < spaceNodes.length; i++) {
+      spaceNodes[i].style.display = 'inline';
+    }
+  }
+
+  function hideSpaces(spaceNodes) {
+    for (var i = 0; i < spaceNodes.length; i++) {
+      spaceNodes[i].style.display = 'none';
+    }
   }
 
   /**
@@ -193,10 +208,12 @@
     var openParen  = buildOpenParen();
     var closeParen = buildCloseParen();
 
-    var defaultResult = buildTextNodes(defaultText);
-    var altResult     = buildTextNodes(alternateText);
-    var defaultSpans  = defaultResult.spans;
-    var altSpans      = altResult.spans;
+    var defaultResult  = buildTextNodes(defaultText);
+    var altResult      = buildTextNodes(alternateText);
+    var defaultSpans   = defaultResult.spans;
+    var altSpans       = altResult.spans;
+    var defaultSpaces  = defaultResult.spaceNodes;
+    var altSpaces      = altResult.spaceNodes;
 
     // DOM: defaultNodes | altNodes | closeParen | openParen (last = out of flow)
     defaultResult.nodes.forEach(function (n) { el.appendChild(n); });
@@ -215,6 +232,9 @@
         'transform ' + TRANSITION_MS + 'ms ease,' +
         'max-width ' + TRANSITION_MS + 'ms ease';
     });
+    // Default spaces visible, alt spaces hidden on load
+    showSpaces(defaultSpaces);
+    hideSpaces(altSpaces);
 
     var busy  = false;
     var shown = 'default';
@@ -227,6 +247,9 @@
       showOpenParen(openParen);
       showCloseParen(closeParen);
 
+      // Show alt spaces immediately so words have correct gap as they appear
+      showSpaces(altSpaces);
+
       var defaultLen = defaultSpans.length;
       var altLen     = altSpans.length;
 
@@ -238,7 +261,10 @@
         })(i);
       }
 
+      // Hide default spaces once default text is gone
       var dissolveTime = animDuration(defaultLen);
+      setTimeout(function () { hideSpaces(defaultSpaces); }, dissolveTime);
+
       for (var j = 0; j < altLen; j++) {
         (function (idx) {
           setTimeout(function () {
@@ -259,6 +285,9 @@
       if (busy) return;
       busy = true;
 
+      // Show default spaces immediately
+      showSpaces(defaultSpaces);
+
       var defaultLen = defaultSpans.length;
       var altLen     = altSpans.length;
 
@@ -270,7 +299,10 @@
         })(i);
       }
 
+      // Hide alt spaces once alt text is gone
       var dissolveTime = animDuration(altLen);
+      setTimeout(function () { hideSpaces(altSpaces); }, dissolveTime);
+
       for (var j = 0; j < defaultLen; j++) {
         (function (idx) {
           setTimeout(function () {
