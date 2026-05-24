@@ -210,6 +210,35 @@
         'max-width ' + TRANSITION_MS + 'ms ease';
     });
 
+    // Lock height to the tallest of the two text states so layout never shifts
+    // during animation. We temporarily render the alt text to measure it.
+    (function () {
+      var defaultHeight = el.offsetHeight;
+
+      // Swap in alt text invisibly to measure its height
+      while (textContainer.firstChild) textContainer.removeChild(textContainer.firstChild);
+      var altMeasure = buildNodes(alternateText);
+      altMeasure.nodes.forEach(function (n) { textContainer.appendChild(n); });
+      altMeasure.spans.forEach(function (s) { s.style.transition = 'none'; showSpan(s); });
+      var altHeight = el.offsetHeight;
+
+      // Restore default text
+      while (textContainer.firstChild) textContainer.removeChild(textContainer.firstChild);
+      defResult.nodes.forEach(function (n) { textContainer.appendChild(n); });
+      defSpans.forEach(function (s) {
+        s.style.transition = 'none';
+        showSpan(s);
+        void s.offsetWidth;
+        s.style.transition =
+          'opacity '   + TRANSITION_MS + 'ms ease,' +
+          'filter '    + TRANSITION_MS + 'ms ease,' +
+          'transform ' + TRANSITION_MS + 'ms ease,' +
+          'max-width ' + TRANSITION_MS + 'ms ease';
+      });
+
+      el.style.minHeight = Math.max(defaultHeight, altHeight) + 'px';
+    })();
+
     var busy  = false;
     var shown = 'default';
 
