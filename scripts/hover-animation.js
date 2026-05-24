@@ -28,29 +28,132 @@
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
   /**
-   * Wrap each character of a string in an animated <span>.
-   * Returns an array of spans; caller appends them inside a no-wrap wrapper.
+   * Build character spans for a string.
+   * Each word's characters are wrapped in a white-space:nowrap inline span
+   * so the browser can break between words but never mid-word.
+   * Returns a flat array of all character spans (for animation targeting).
    */
   function buildCharSpans(text) {
-    var spans = [];
-    for (var i = 0; i < text.length; i++) {
-      var span = document.createElement('span');
-      span.textContent = text[i];
-      span.style.display    = 'inline-block';
-      span.style.whiteSpace = 'pre';
-      span.style.maxWidth   = '0';
-      span.style.opacity    = '0';
-      span.style.filter     = 'blur(6px)';
-      span.style.transform  = 'translateY(3px)';
-      span.style.overflow   = 'hidden';
-      span.style.transition =
-        'opacity '   + TRANSITION_MS + 'ms ease, ' +
-        'filter '    + TRANSITION_MS + 'ms ease, ' +
-        'transform ' + TRANSITION_MS + 'ms ease, ' +
-        'max-width ' + TRANSITION_MS + 'ms ease';
-      spans.push(span);
+    var allSpans = [];
+
+    // Split into tokens: words and the spaces between them
+    var tokens = text.match(/\S+|\s+/g) || [];
+
+    for (var t = 0; t < tokens.length; t++) {
+      var token = tokens[t];
+      var isSpace = /^\s+$/.test(token);
+
+      if (isSpace) {
+        // Spaces: one span per space character, sits outside the nowrap wrapper
+        for (var s = 0; s < token.length; s++) {
+          var spaceSpan = document.createElement('span');
+          spaceSpan.textContent      = token[s];
+          spaceSpan.style.display    = 'inline-block';
+          spaceSpan.style.whiteSpace = 'pre';
+          spaceSpan.style.maxWidth   = '0';
+          spaceSpan.style.opacity    = '0';
+          spaceSpan.style.filter     = 'blur(6px)';
+          spaceSpan.style.transform  = 'translateY(3px)';
+          spaceSpan.style.overflow   = 'hidden';
+          spaceSpan.style.transition =
+            'opacity '   + TRANSITION_MS + 'ms ease, ' +
+            'filter '    + TRANSITION_MS + 'ms ease, ' +
+            'transform ' + TRANSITION_MS + 'ms ease, ' +
+            'max-width ' + TRANSITION_MS + 'ms ease';
+          allSpans.push(spaceSpan);
+        }
+      } else {
+        // Word: wrap all its char spans in a nowrap container
+        var wordWrapper = document.createElement('span');
+        wordWrapper.style.display    = 'inline';
+        wordWrapper.style.whiteSpace = 'nowrap';
+
+        for (var c = 0; c < token.length; c++) {
+          var charSpan = document.createElement('span');
+          charSpan.textContent      = token[c];
+          charSpan.style.display    = 'inline-block';
+          charSpan.style.whiteSpace = 'pre';
+          charSpan.style.maxWidth   = '0';
+          charSpan.style.opacity    = '0';
+          charSpan.style.filter     = 'blur(6px)';
+          charSpan.style.transform  = 'translateY(3px)';
+          charSpan.style.overflow   = 'hidden';
+          charSpan.style.transition =
+            'opacity '   + TRANSITION_MS + 'ms ease, ' +
+            'filter '    + TRANSITION_MS + 'ms ease, ' +
+            'transform ' + TRANSITION_MS + 'ms ease, ' +
+            'max-width ' + TRANSITION_MS + 'ms ease';
+          wordWrapper.appendChild(charSpan);
+          allSpans.push(charSpan);
+        }
+      }
     }
-    return spans;
+
+    return allSpans;
+  }
+
+  /**
+   * Same as buildCharSpans but also returns the wrapper elements so the
+   * caller can append them to the DOM (rather than the spans directly).
+   * Returns { spans, nodes } where nodes is what gets appended to the parent.
+   */
+  function buildTextNodes(text) {
+    var allSpans = [];
+    var domNodes = []; // what to appendChild onto the headline element
+
+    var tokens = text.match(/\S+|\s+/g) || [];
+
+    for (var t = 0; t < tokens.length; t++) {
+      var token   = tokens[t];
+      var isSpace = /^\s+$/.test(token);
+
+      if (isSpace) {
+        for (var s = 0; s < token.length; s++) {
+          var spaceSpan = document.createElement('span');
+          spaceSpan.textContent      = token[s];
+          spaceSpan.style.display    = 'inline-block';
+          spaceSpan.style.whiteSpace = 'pre';
+          spaceSpan.style.maxWidth   = '0';
+          spaceSpan.style.opacity    = '0';
+          spaceSpan.style.filter     = 'blur(6px)';
+          spaceSpan.style.transform  = 'translateY(3px)';
+          spaceSpan.style.overflow   = 'hidden';
+          spaceSpan.style.transition =
+            'opacity '   + TRANSITION_MS + 'ms ease, ' +
+            'filter '    + TRANSITION_MS + 'ms ease, ' +
+            'transform ' + TRANSITION_MS + 'ms ease, ' +
+            'max-width ' + TRANSITION_MS + 'ms ease';
+          allSpans.push(spaceSpan);
+          domNodes.push(spaceSpan);
+        }
+      } else {
+        var wordWrapper = document.createElement('span');
+        wordWrapper.style.display    = 'inline';
+        wordWrapper.style.whiteSpace = 'nowrap';
+
+        for (var c = 0; c < token.length; c++) {
+          var charSpan = document.createElement('span');
+          charSpan.textContent      = token[c];
+          charSpan.style.display    = 'inline-block';
+          charSpan.style.whiteSpace = 'pre';
+          charSpan.style.maxWidth   = '0';
+          charSpan.style.opacity    = '0';
+          charSpan.style.filter     = 'blur(6px)';
+          charSpan.style.transform  = 'translateY(3px)';
+          charSpan.style.overflow   = 'hidden';
+          charSpan.style.transition =
+            'opacity '   + TRANSITION_MS + 'ms ease, ' +
+            'filter '    + TRANSITION_MS + 'ms ease, ' +
+            'transform ' + TRANSITION_MS + 'ms ease, ' +
+            'max-width ' + TRANSITION_MS + 'ms ease';
+          wordWrapper.appendChild(charSpan);
+          allSpans.push(charSpan);
+        }
+        domNodes.push(wordWrapper);
+      }
+    }
+
+    return { spans: allSpans, nodes: domNodes };
   }
 
   /** Show a character span */
@@ -70,19 +173,43 @@
   }
 
   /**
-   * Build a parenthesis span.
-   * Both parens use max-width collapse so neither affects layout when invisible.
+   * Build the opening paren span.
+   * Uses a negative left margin equal to its own rendered width so it
+   * overlaps into the margin and never displaces the text to the right.
+   * The span itself has width:0 / overflow:hidden so it takes no layout space.
    */
-  function buildParenSpan(char) {
+  function buildOpenParen() {
     var span = document.createElement('span');
-    span.textContent      = char;
+    span.textContent         = '(';
+    span.style.display       = 'inline-block';
+    span.style.whiteSpace    = 'pre';
+    span.style.width         = '0';
+    span.style.overflow      = 'visible'; // render outside its zero box
+    span.style.marginLeft    = '-0.6em';  // pull into left margin
+    span.style.opacity       = '0';
+    span.style.filter        = 'blur(6px)';
+    span.style.transform     = 'translateY(3px)';
+    span.style.transition    =
+      'opacity '   + PAREN_DURATION_MS + 'ms ease, ' +
+      'filter '    + PAREN_DURATION_MS + 'ms ease, ' +
+      'transform ' + PAREN_DURATION_MS + 'ms ease';
+    return span;
+  }
+
+  /**
+   * Build the closing paren span.
+   * Uses max-width collapse so it takes no space when invisible.
+   */
+  function buildCloseParen() {
+    var span = document.createElement('span');
+    span.textContent      = ')';
     span.style.display    = 'inline-block';
     span.style.whiteSpace = 'pre';
     span.style.maxWidth   = '0';
+    span.style.overflow   = 'hidden';
     span.style.opacity    = '0';
     span.style.filter     = 'blur(6px)';
     span.style.transform  = 'translateY(3px)';
-    span.style.overflow   = 'hidden';
     span.style.transition =
       'opacity '   + PAREN_DURATION_MS + 'ms ease, ' +
       'filter '    + PAREN_DURATION_MS + 'ms ease, ' +
@@ -91,14 +218,26 @@
     return span;
   }
 
-  function showParen(span) {
+  function showOpenParen(span) {
+    span.style.opacity   = '1';
+    span.style.filter    = 'blur(0px)';
+    span.style.transform = 'translateY(0)';
+  }
+
+  function hideOpenParen(span) {
+    span.style.opacity   = '0';
+    span.style.filter    = 'blur(6px)';
+    span.style.transform = 'translateY(3px)';
+  }
+
+  function showCloseParen(span) {
     span.style.maxWidth  = '2em';
     span.style.opacity   = '1';
     span.style.filter    = 'blur(0px)';
     span.style.transform = 'translateY(0)';
   }
 
-  function hideParen(span) {
+  function hideCloseParen(span) {
     span.style.maxWidth  = '0';
     span.style.opacity   = '0';
     span.style.filter    = 'blur(6px)';
@@ -118,33 +257,30 @@
 
     if (!defaultText || !alternateText) return;
 
-    // Prevent the headline from wrapping mid-word
-    el.style.whiteSpace = 'nowrap';
-
     // Clear existing content
     el.innerHTML = '';
 
     // Build parens
-    var openParen  = buildParenSpan('(');
-    var closeParen = buildParenSpan(')');
+    var openParen  = buildOpenParen();
+    var closeParen = buildCloseParen();
 
-    // Build char span arrays
-    var defaultSpans = buildCharSpans(defaultText);
-    var altSpans     = buildCharSpans(alternateText);
+    // Build text nodes (word-wrapped) and char span arrays
+    var defaultResult = buildTextNodes(defaultText);
+    var altResult     = buildTextNodes(alternateText);
+    var defaultSpans  = defaultResult.spans;
+    var altSpans      = altResult.spans;
 
-    // ── DOM order: openParen | defaultSpans | altSpans | closeParen ──────────
-    // Closing paren always sits at the end of whichever text is visible,
-    // so it never jumps when the hidden text group collapses.
+    // DOM order: openParen | defaultNodes | altNodes | closeParen
     el.appendChild(openParen);
-    defaultSpans.forEach(function (s) { el.appendChild(s); });
-    altSpans.forEach(function (s) { el.appendChild(s); });
+    defaultResult.nodes.forEach(function (n) { el.appendChild(n); });
+    altResult.nodes.forEach(function (n) { el.appendChild(n); });
     el.appendChild(closeParen);
 
-    // Show default text immediately without animating on load
+    // Show default text immediately (no animation on load)
     defaultSpans.forEach(function (s) {
       s.style.transition = 'none';
       showSpan(s);
-      void s.offsetWidth; // force reflow
+      void s.offsetWidth;
       s.style.transition =
         'opacity '   + TRANSITION_MS + 'ms ease, ' +
         'filter '    + TRANSITION_MS + 'ms ease, ' +
@@ -153,25 +289,19 @@
     });
 
     var busy  = false;
-    var shown = 'default'; // 'default' | 'alternate'
+    var shown = 'default';
 
-    /**
-     * default → alternate
-     * 1. Parens fade in
-     * 2. Default dissolves R→L
-     * 3. Alternate types in L→R
-     */
+    // default → alternate
     function toAlternate(onDone) {
       if (busy) return;
       busy = true;
 
-      showParen(openParen);
-      showParen(closeParen);
+      showOpenParen(openParen);
+      showCloseParen(closeParen);
 
       var defaultLen = defaultSpans.length;
       var altLen     = altSpans.length;
 
-      // Dissolve default R→L
       for (var i = 0; i < defaultLen; i++) {
         (function (idx) {
           setTimeout(function () {
@@ -180,7 +310,6 @@
         })(i);
       }
 
-      // Type in alternate L→R after default fully gone
       var dissolveTime = animDuration(defaultLen);
       for (var j = 0; j < altLen; j++) {
         (function (idx) {
@@ -198,12 +327,7 @@
       }, totalTime);
     }
 
-    /**
-     * alternate → default
-     * 1. Alternate dissolves R→L
-     * 2. Default types in L→R
-     * 3. Parens fade out
-     */
+    // alternate → default
     function toDefault(onDone) {
       if (busy) return;
       busy = true;
@@ -211,7 +335,6 @@
       var defaultLen = defaultSpans.length;
       var altLen     = altSpans.length;
 
-      // Dissolve alternate R→L
       for (var i = 0; i < altLen; i++) {
         (function (idx) {
           setTimeout(function () {
@@ -220,7 +343,6 @@
         })(i);
       }
 
-      // Type in default L→R after alternate fully gone
       var dissolveTime = animDuration(altLen);
       for (var j = 0; j < defaultLen; j++) {
         (function (idx) {
@@ -230,11 +352,10 @@
         })(j);
       }
 
-      // Fade out parens after default fully visible
       var defaultInTime = dissolveTime + animDuration(defaultLen);
       setTimeout(function () {
-        hideParen(openParen);
-        hideParen(closeParen);
+        hideOpenParen(openParen);
+        hideCloseParen(closeParen);
       }, defaultInTime);
 
       var totalTime = defaultInTime + PAREN_DURATION_MS;
@@ -245,7 +366,7 @@
       }, totalTime);
     }
 
-    // ── Desktop: mouse events ─────────────────────────────────────────────────
+    // Desktop
     if (!isTouch) {
       el.addEventListener('mouseenter', function () {
         if (shown === 'default') toAlternate();
@@ -255,7 +376,7 @@
       });
     }
 
-    // ── Touch: auto-cycle ─────────────────────────────────────────────────────
+    // Touch auto-cycle
     if (isTouch) {
       function cycle() {
         toAlternate(function () {
