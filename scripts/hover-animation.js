@@ -34,6 +34,7 @@
     span.style.cssText =
       'display:inline-block;' +
       'vertical-align:baseline;' +
+      'line-height:1;' +
       'white-space:pre;' +
       'max-width:0;' +
       'opacity:0;' +
@@ -112,6 +113,7 @@
       'left:0;top:0;' +
       'display:inline-block;' +
       'vertical-align:baseline;' +
+      'line-height:1;' +
       'white-space:pre;' +
       'opacity:0;' +
       'filter:blur(6px);' +
@@ -133,6 +135,7 @@
     span.style.cssText =
       'display:inline-block;' +
       'vertical-align:baseline;' +
+      'line-height:1;' +
       'white-space:pre;' +
       'max-width:0;' +
       'overflow:hidden;' +
