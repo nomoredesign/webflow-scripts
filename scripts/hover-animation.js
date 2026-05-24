@@ -6,9 +6,8 @@
  * On desktop: mouseenter/mouseleave triggers the transition.
  * On touch devices: auto-cycles after an initial 1.5s delay.
  *
- * The <h1> (or whatever element carries the data attributes) must have
- * position: relative set in CSS so the absolutely-positioned opening
- * parenthesis anchors correctly.
+ * The headline element must have position:relative set in CSS so the
+ * absolutely-positioned opening parenthesis anchors correctly.
  *
  * HTML usage:
  *   <h1 style="position:relative"
@@ -33,7 +32,7 @@
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-  /** Create a single hidden animated character span */
+  /** Create a single hidden animated character span (letters only, not spaces) */
   function makeCharSpan(char) {
     var span = document.createElement('span');
     span.textContent = char;
@@ -54,13 +53,18 @@
   }
 
   /**
-   * Build character spans for a string, grouped by word.
-   * Each word's chars sit inside a white-space:nowrap wrapper so the browser
-   * can break between words but never mid-word.
-   * Spaces are individual spans outside the word wrappers.
+   * Build DOM nodes and a flat char-span array for a text string.
+   *
+   * Structure per token:
+   *   - Word  → <span style="white-space:nowrap"> wrapping per-char spans
+   *   - Space → plain text node (browser collapses it at line ends naturally)
+   *
+   * Spaces are NOT animated — they appear/disappear instantly as their
+   * surrounding words animate. This ensures trailing spaces on wrapped lines
+   * never push subsequent lines out of alignment.
    *
    * Returns { spans, nodes }
-   *   spans — flat array of all char spans (for animation)
+   *   spans — flat array of animated char spans (for show/hide calls)
    *   nodes — DOM nodes to append to the headline element
    */
   function buildTextNodes(text) {
@@ -73,11 +77,8 @@
       var isSpace = /^\s+$/.test(token);
 
       if (isSpace) {
-        for (var s = 0; s < token.length; s++) {
-          var sp = makeCharSpan(' ');
-          allSpans.push(sp);
-          domNodes.push(sp);
-        }
+        // Plain text node — browser handles collapsing at line breaks
+        domNodes.push(document.createTextNode(token));
       } else {
         var wrapper = document.createElement('span');
         wrapper.style.cssText = 'display:inline;white-space:nowrap;';
@@ -110,9 +111,8 @@
   /**
    * Opening paren — absolutely positioned, appended LAST in the DOM so it
    * has zero influence on the inline flow or line box of the text.
-   * Anchors to the nearest position:relative ancestor (the headline element).
-   * left:0 / top:0 aligns to the text's top-left corner; translateX pulls it
-   * into the left margin without touching layout.
+   * left:0 / top:0 aligns to the headline's top-left corner;
+   * translateX(-100%) pulls it into the left margin.
    */
   function buildOpenParen() {
     var span = document.createElement('span');
@@ -121,21 +121,19 @@
       'position:absolute;' +
       'left:0;' +
       'top:0;' +
-      'transform:translateX(-100%) translateY(3px);' +
       'display:inline-block;' +
       'white-space:pre;' +
       'opacity:0;' +
       'filter:blur(6px);' +
+      'transform:translateX(-100%) translateY(3px);' +
       'transition:' +
-        'opacity '    + PAREN_DURATION_MS + 'ms ease,' +
-        'filter '     + PAREN_DURATION_MS + 'ms ease,' +
-        'transform '  + PAREN_DURATION_MS + 'ms ease;';
+        'opacity '   + PAREN_DURATION_MS + 'ms ease,' +
+        'filter '    + PAREN_DURATION_MS + 'ms ease,' +
+        'transform ' + PAREN_DURATION_MS + 'ms ease;';
     return span;
   }
 
-  /**
-   * Closing paren — inline, collapses to zero width when hidden.
-   */
+  /** Closing paren — inline, collapses to zero width when hidden */
   function buildCloseParen() {
     var span = document.createElement('span');
     span.textContent = ')';
@@ -158,7 +156,6 @@
   function showOpenParen(span) {
     span.style.opacity   = '1';
     span.style.filter    = 'blur(0px)';
-    // keep translateX(-100%) but lift the Y offset
     span.style.transform = 'translateX(-100%) translateY(0)';
   }
   function hideOpenParen(span) {
@@ -201,12 +198,11 @@
     var defaultSpans  = defaultResult.spans;
     var altSpans      = altResult.spans;
 
-    // DOM: defaultNodes | altNodes | closeParen | openParen
-    // openParen is LAST so it is fully out of the inline flow
+    // DOM: defaultNodes | altNodes | closeParen | openParen (last = out of flow)
     defaultResult.nodes.forEach(function (n) { el.appendChild(n); });
     altResult.nodes.forEach(function (n) { el.appendChild(n); });
     el.appendChild(closeParen);
-    el.appendChild(openParen); // absolutely positioned, appended last
+    el.appendChild(openParen);
 
     // Show default text immediately, no animation on load
     defaultSpans.forEach(function (s) {
