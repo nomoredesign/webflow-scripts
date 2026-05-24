@@ -6,12 +6,10 @@
  * On desktop: mouseenter/mouseleave triggers the transition.
  * On touch devices: auto-cycles after an initial 1.5s delay.
  *
- * The headline element must have position:relative set in CSS so the
- * absolutely-positioned opening parenthesis anchors correctly.
+ * No special CSS required on the headline element.
  *
  * HTML usage:
- *   <h1 style="position:relative"
- *       data-hover-headline="Default text here."
+ *   <h1 data-hover-headline="Default text here."
  *       data-hover-alternate="Alternate text.">
  *     Default text here.
  *   </h1>
@@ -20,19 +18,15 @@
 (function () {
   'use strict';
 
-  // ─── Timing constants ────────────────────────────────────────────────────────
-  var CHAR_STAGGER_MS   = 22;   // Delay between each character animation start
-  var TRANSITION_MS     = 300;  // CSS transition duration per character (ms)
-  var PAREN_DURATION_MS = 350;  // Parenthesis fade duration (ms)
-  var INITIAL_DELAY_MS  = 1500; // Touch: pause before first auto-cycle
-  var HOLD_MS           = 1500; // Touch: how long alternate text stays visible
+  var CHAR_STAGGER_MS   = 22;
+  var TRANSITION_MS     = 300;
+  var PAREN_DURATION_MS = 350;
+  var INITIAL_DELAY_MS  = 1500;
+  var HOLD_MS           = 1500;
 
-  // ─── Touch detection ─────────────────────────────────────────────────────────
   var isTouch = navigator.maxTouchPoints > 0;
 
-  // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-  /** Create a single hidden animated character span (letters only, not spaces) */
+  // ─── Character span ───────────────────────────────────────────────────────────
   function makeCharSpan(char) {
     var span = document.createElement('span');
     span.textContent = char;
@@ -52,36 +46,39 @@
     return span;
   }
 
-  /**
-   * Build DOM nodes and a flat char-span array for a text string.
-   *
-   * Words  → <span style="white-space:nowrap"> wrapping per-char spans
-   * Spaces → <span class="space-node"> containing a plain text node.
-   *           Space spans are NOT animated but can be shown/hidden instantly
-   *           via display:none so they never appear while their text is hidden.
-   *
-   * Returns { spans, nodes, spaceNodes }
-   *   spans      — flat array of animated char spans (letters only)
-   *   nodes      — DOM nodes to append to the headline element
-   *   spaceNodes — the space wrapper spans (for show/hide in sync)
-   */
+  function showSpan(span) {
+    span.style.maxWidth  = '2em';
+    span.style.opacity   = '1';
+    span.style.filter    = 'blur(0px)';
+    span.style.transform = 'translateY(0)';
+  }
+
+  function hideSpan(span) {
+    span.style.maxWidth  = '0';
+    span.style.opacity   = '0';
+    span.style.filter    = 'blur(6px)';
+    span.style.transform = 'translateY(3px)';
+  }
+
+  // ─── Text node builder ────────────────────────────────────────────────────────
+  // Words  → nowrap wrapper containing char spans
+  // Spaces → toggleable span (display:none when text group is hidden)
   function buildTextNodes(text) {
-    var allSpans  = [];
-    var domNodes  = [];
+    var allSpans   = [];
+    var domNodes   = [];
     var spaceNodes = [];
-    var tokens    = text.match(/\S+|\s+/g) || [];
+    var tokens     = text.match(/\S+|\s+/g) || [];
 
     for (var t = 0; t < tokens.length; t++) {
       var token   = tokens[t];
       var isSpace = /^\s+$/.test(token);
 
       if (isSpace) {
-        // Wrap space in a span so we can toggle display:none when text is hidden
-        var spaceWrapper = document.createElement('span');
-        spaceWrapper.style.cssText = 'display:none;white-space:pre;';
-        spaceWrapper.textContent   = token;
-        spaceNodes.push(spaceWrapper);
-        domNodes.push(spaceWrapper);
+        var sw = document.createElement('span');
+        sw.style.cssText  = 'display:none;white-space:pre;';
+        sw.textContent    = token;
+        spaceNodes.push(sw);
+        domNodes.push(sw);
       } else {
         var wrapper = document.createElement('span');
         wrapper.style.cssText = 'display:inline;white-space:nowrap;';
@@ -97,50 +94,36 @@
     return { spans: allSpans, nodes: domNodes, spaceNodes: spaceNodes };
   }
 
-  function showSpan(span) {
-    span.style.maxWidth  = '2em';
-    span.style.opacity   = '1';
-    span.style.filter    = 'blur(0px)';
-    span.style.transform = 'translateY(0)';
+  function showSpaces(nodes) {
+    for (var i = 0; i < nodes.length; i++) nodes[i].style.display = 'inline';
+  }
+  function hideSpaces(nodes) {
+    for (var i = 0; i < nodes.length; i++) nodes[i].style.display = 'none';
   }
 
-  function hideSpan(span) {
-    span.style.maxWidth  = '0';
-    span.style.opacity   = '0';
-    span.style.filter    = 'blur(6px)';
-    span.style.transform = 'translateY(3px)';
-  }
-
-  function showSpaces(spaceNodes) {
-    for (var i = 0; i < spaceNodes.length; i++) {
-      spaceNodes[i].style.display = 'inline';
-    }
-  }
-
-  function hideSpaces(spaceNodes) {
-    for (var i = 0; i < spaceNodes.length; i++) {
-      spaceNodes[i].style.display = 'none';
-    }
-  }
-
+  // ─── Parentheses ─────────────────────────────────────────────────────────────
   /**
-   * Opening paren — absolutely positioned, appended LAST in the DOM so it
-   * has zero influence on the inline flow or line box of the text.
-   * left:0 / top:0 aligns to the headline's top-left corner;
-   * translateX(-100%) pulls it into the left margin.
+   * Both parens are plain inline spans.
+   *
+   * Open paren strategy:
+   *   - Always occupies its natural inline space (so text never shifts)
+   *   - Uses visibility + opacity/filter/transform for the fade
+   *   - visibility:hidden when inactive keeps it invisible but preserves layout
+   *
+   * Close paren strategy:
+   *   - max-width collapse (same as character spans) — it sits at the end of
+   *     the text so collapsing it causes no reflow on preceding content
    */
   function buildOpenParen() {
     var span = document.createElement('span');
     span.textContent = '(';
     span.style.cssText =
-      'position:absolute;' +
-      'left:0;' +
-      'top:0;' +
       'display:inline-block;' +
       'white-space:pre;' +
+      'visibility:hidden;' +
       'opacity:0;' +
       'filter:blur(6px);' +
-      'transform:translateX(-100%) translateY(3px);' +
+      'transform:translateY(3px);' +
       'transition:' +
         'opacity '   + PAREN_DURATION_MS + 'ms ease,' +
         'filter '    + PAREN_DURATION_MS + 'ms ease,' +
@@ -148,7 +131,6 @@
     return span;
   }
 
-  /** Closing paren — inline, collapses to zero width when hidden */
   function buildCloseParen() {
     var span = document.createElement('span');
     span.textContent = ')';
@@ -169,14 +151,19 @@
   }
 
   function showOpenParen(span) {
-    span.style.opacity   = '1';
-    span.style.filter    = 'blur(0px)';
-    span.style.transform = 'translateX(-100%) translateY(0)';
+    span.style.visibility = 'visible';
+    span.style.opacity    = '1';
+    span.style.filter     = 'blur(0px)';
+    span.style.transform  = 'translateY(0)';
   }
   function hideOpenParen(span) {
     span.style.opacity   = '0';
     span.style.filter    = 'blur(6px)';
-    span.style.transform = 'translateX(-100%) translateY(3px)';
+    span.style.transform = 'translateY(3px)';
+    // delay visibility:hidden until after the fade transition completes
+    setTimeout(function () {
+      span.style.visibility = 'hidden';
+    }, PAREN_DURATION_MS);
   }
 
   function showCloseParen(span) {
@@ -196,8 +183,7 @@
     return numChars * CHAR_STAGGER_MS + TRANSITION_MS;
   }
 
-  // ─── Per-element initialisation ──────────────────────────────────────────────
-
+  // ─── Per-element init ─────────────────────────────────────────────────────────
   function initElement(el) {
     var defaultText   = el.getAttribute('data-hover-headline') || '';
     var alternateText = el.getAttribute('data-hover-alternate') || '';
@@ -208,21 +194,23 @@
     var openParen  = buildOpenParen();
     var closeParen = buildCloseParen();
 
-    var defaultResult  = buildTextNodes(defaultText);
-    var altResult      = buildTextNodes(alternateText);
-    var defaultSpans   = defaultResult.spans;
-    var altSpans       = altResult.spans;
-    var defaultSpaces  = defaultResult.spaceNodes;
-    var altSpaces      = altResult.spaceNodes;
+    var defResult  = buildTextNodes(defaultText);
+    var altResult  = buildTextNodes(alternateText);
+    var defSpans   = defResult.spans;
+    var altSpans   = altResult.spans;
+    var defSpaces  = defResult.spaceNodes;
+    var altSpaces  = altResult.spaceNodes;
 
-    // DOM: defaultNodes | altNodes | closeParen | openParen (last = out of flow)
-    defaultResult.nodes.forEach(function (n) { el.appendChild(n); });
+    // DOM order: openParen | defaultNodes | altNodes | closeParen
+    // Open paren is first but uses visibility so it never pushes text.
+    // Close paren is last, collapses cleanly with no upstream reflow.
+    el.appendChild(openParen);
+    defResult.nodes.forEach(function (n) { el.appendChild(n); });
     altResult.nodes.forEach(function (n) { el.appendChild(n); });
     el.appendChild(closeParen);
-    el.appendChild(openParen);
 
-    // Show default text immediately, no animation on load
-    defaultSpans.forEach(function (s) {
+    // Initialise: default visible, alt hidden
+    defSpans.forEach(function (s) {
       s.style.transition = 'none';
       showSpan(s);
       void s.offsetWidth;
@@ -232,8 +220,7 @@
         'transform ' + TRANSITION_MS + 'ms ease,' +
         'max-width ' + TRANSITION_MS + 'ms ease';
     });
-    // Default spaces visible, alt spaces hidden on load
-    showSpaces(defaultSpaces);
+    showSpaces(defSpaces);
     hideSpaces(altSpaces);
 
     var busy  = false;
@@ -246,24 +233,21 @@
 
       showOpenParen(openParen);
       showCloseParen(closeParen);
-
-      // Show alt spaces immediately so words have correct gap as they appear
       showSpaces(altSpaces);
 
-      var defaultLen = defaultSpans.length;
-      var altLen     = altSpans.length;
+      var defLen = defSpans.length;
+      var altLen = altSpans.length;
 
-      for (var i = 0; i < defaultLen; i++) {
+      for (var i = 0; i < defLen; i++) {
         (function (idx) {
           setTimeout(function () {
-            hideSpan(defaultSpans[defaultLen - 1 - idx]);
+            hideSpan(defSpans[defLen - 1 - idx]);
           }, idx * CHAR_STAGGER_MS);
         })(i);
       }
 
-      // Hide default spaces once default text is gone
-      var dissolveTime = animDuration(defaultLen);
-      setTimeout(function () { hideSpaces(defaultSpaces); }, dissolveTime);
+      var dissolveTime = animDuration(defLen);
+      setTimeout(function () { hideSpaces(defSpaces); }, dissolveTime);
 
       for (var j = 0; j < altLen; j++) {
         (function (idx) {
@@ -285,11 +269,10 @@
       if (busy) return;
       busy = true;
 
-      // Show default spaces immediately
-      showSpaces(defaultSpaces);
+      showSpaces(defSpaces);
 
-      var defaultLen = defaultSpans.length;
-      var altLen     = altSpans.length;
+      var defLen = defSpans.length;
+      var altLen = altSpans.length;
 
       for (var i = 0; i < altLen; i++) {
         (function (idx) {
@@ -299,29 +282,28 @@
         })(i);
       }
 
-      // Hide alt spaces once alt text is gone
       var dissolveTime = animDuration(altLen);
       setTimeout(function () { hideSpaces(altSpaces); }, dissolveTime);
 
-      for (var j = 0; j < defaultLen; j++) {
+      for (var j = 0; j < defLen; j++) {
         (function (idx) {
           setTimeout(function () {
-            showSpan(defaultSpans[idx]);
+            showSpan(defSpans[idx]);
           }, dissolveTime + idx * CHAR_STAGGER_MS);
         })(j);
       }
 
-      var defaultInTime = dissolveTime + animDuration(defaultLen);
+      var defInTime = dissolveTime + animDuration(defLen);
       setTimeout(function () {
         hideOpenParen(openParen);
         hideCloseParen(closeParen);
-      }, defaultInTime);
+      }, defInTime);
 
       setTimeout(function () {
         shown = 'default';
         busy  = false;
         if (onDone) onDone();
-      }, defaultInTime + PAREN_DURATION_MS);
+      }, defInTime + PAREN_DURATION_MS);
     }
 
     // Desktop
@@ -350,7 +332,6 @@
   }
 
   // ─── Boot ─────────────────────────────────────────────────────────────────────
-
   function init() {
     var elements = document.querySelectorAll('[data-hover-headline]');
     for (var i = 0; i < elements.length; i++) {
