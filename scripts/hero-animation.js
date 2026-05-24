@@ -19,11 +19,16 @@ function initHeroAnimation() {
     { attr: "3", key: "style"   },
   ];
 
-  if (lines.every(({ key }) => wordBank[key].length === 0)) return;
+  if (lines.every(({ key }) => wordBank[key].length === 0)) {
+    console.warn("[hero] No words found — check data-hero-line attributes.");
+    return;
+  }
+
+  console.log("[hero] Word banks loaded:", wordBank);
 
   // ── Inject shared character styles ───────────────────────────────────────
-  const style = document.createElement("style");
-  style.textContent = `
+  const styleEl = document.createElement("style");
+  styleEl.textContent = `
     .hw-char {
       display: inline-block;
       overflow: hidden;
@@ -41,7 +46,7 @@ function initHeroAnimation() {
       transform: translateY(0);
     }
   `;
-  document.head.appendChild(style);
+  document.head.appendChild(styleEl);
 
   // ── Timing ────────────────────────────────────────────────────────────────
   const CHAR_STAGGER_MS  = 22;
@@ -53,58 +58,66 @@ function initHeroAnimation() {
   const indices = { outputs: 0, clients: 0, style: 0 };
 
   // ── Font sizing ───────────────────────────────────────────────────────────
-  // Finds the longest full line string (static + longest word) and scales
-  // font-size so that line fills the container width exactly.
   function fitFontSize() {
-    const targets = lines.map(({ attr }) =>
-      document.querySelector(`[data-hero-word="${attr}"]`)
-    );
-    const container = targets[0] && targets[0].closest("[data-hero-container]");
-    if (!container) return;
+    const h1Els = lines.map(({ attr }) => {
+      const span = document.querySelector(`[data-hero-word="${attr}"]`);
+      return span ? (span.closest("h1") || span.parentElement) : null;
+    }).filter(Boolean);
+
+    if (!h1Els.length) return;
+
+    // Find the container: walk up from the first h1 until we find an element
+    // wider than the h1 itself (i.e. the wrapping section/div)
+    let container = h1Els[0].parentElement;
+    while (container && container !== document.body) {
+      const cw = container.getBoundingClientRect().width;
+      const hw = h1Els[0].getBoundingClientRect().width;
+      if (cw > hw) break;
+      container = container.parentElement;
+    }
+
+    if (!container || container === document.body) {
+      console.warn("[hero] Could not find a container wider than h1.");
+      return;
+    }
 
     const containerWidth = container.getBoundingClientRect().width;
-    if (!containerWidth) return;
+    console.log("[hero] Container width:", containerWidth, container);
 
-    // Use a hidden probe element to measure text at a known font size
+    // Probe element — measures text width at a known size
     const probe = document.createElement("span");
-    probe.style.cssText = [
-      "position:absolute",
-      "visibility:hidden",
-      "white-space:nowrap",
-      "font-family:inherit",
-      "font-weight:inherit",
-      "font-size:100px",
-      "letter-spacing:inherit",
-    ].join(";");
+    probe.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap;top:-9999px;left:-9999px;";
     document.body.appendChild(probe);
 
-    const baseSize = 100; // px — probe reference size
+    const BASE = 100; // px reference size
     let smallestRatio = Infinity;
 
-    targets.forEach((target, i) => {
-      if (!target) return;
+    h1Els.forEach((h1, i) => {
       const key = lines[i].key;
+      const animSpan = document.querySelector(`[data-hero-word="${lines[i].attr}"]`);
+      if (!animSpan) return;
 
-      // Get the full h1 text including static prefix
-      const h1 = target.closest("h1") || target.parentElement;
-      if (!h1) return;
+      // Static text = full h1 text minus whatever is in the animated span
+      const staticText = h1.innerText.replace(animSpan.innerText, "").trim();
 
-      // Measure the static part (everything except the animated span)
-      const staticText = h1.textContent.replace(target.textContent, "").trim();
-
-      // Find the longest word in this line's word bank
+      // Longest word by character count
       const longestWord = wordBank[key].reduce((a, b) =>
-        a.length >= b.length ? a : b, ""
-      );
+        a.length >= b.length ? a : b, "");
 
-      // Full line = static text + space + longest word (with brackets if used)
       const fullLine = `${staticText} ${longestWord}`;
 
-      probe.style.font = getComputedStyle(h1).font;
-      probe.textContent = fullLine;
-      const textWidth = probe.getBoundingClientRect().width;
+      // Match h1 font exactly
+      const cs = getComputedStyle(h1);
+      probe.style.fontFamily   = cs.fontFamily;
+      probe.style.fontWeight   = cs.fontWeight;
+      probe.style.fontStyle    = cs.fontStyle;
+      probe.style.letterSpacing = cs.letterSpacing;
+      probe.style.fontSize     = BASE + "px";
+      probe.textContent        = fullLine;
 
-      const ratio = (containerWidth / textWidth) * baseSize;
+      const textWidth = probe.getBoundingClientRect().width;
+      const ratio = (containerWidth / textWidth) * BASE;
+      console.log(`[hero] Line ${i + 1}: "${fullLine}" → ${textWidth}px at ${BASE}px → ratio ${ratio.toFixed(1)}px`);
       if (ratio < smallestRatio) smallestRatio = ratio;
     });
 
@@ -112,14 +125,13 @@ function initHeroAnimation() {
 
     if (smallestRatio === Infinity) return;
 
-    // Apply font size to all h1 elements
-    targets.forEach((target) => {
-      const h1 = target && (target.closest("h1") || target.parentElement);
-      if (h1) h1.style.fontSize = `${smallestRatio}px`;
+    h1Els.forEach((h1) => {
+      h1.style.fontSize = `${smallestRatio}px`;
     });
+
+    console.log("[hero] Font size set to:", smallestRatio.toFixed(1) + "px");
   }
 
-  // Run on load and on resize (debounced)
   fitFontSize();
   let resizeTimer;
   window.addEventListener("resize", () => {
@@ -127,7 +139,7 @@ function initHeroAnimation() {
     resizeTimer = setTimeout(fitFontSize, 100);
   });
 
-  // ── Build char spans into a target element (hidden) ───────────────────────
+  // ── Build char spans ──────────────────────────────────────────────────────
   function buildChars(target, word) {
     target.innerHTML = "";
     return Array.from(word).map((ch) => {
@@ -140,7 +152,7 @@ function initHeroAnimation() {
     });
   }
 
-  // ── Animate chars IN (left → right) ──────────────────────────────────────
+  // ── Animate IN (left → right) ─────────────────────────────────────────────
   function animateIn(spans) {
     return new Promise((resolve) => {
       spans.forEach((s, i) => {
@@ -153,7 +165,7 @@ function initHeroAnimation() {
     });
   }
 
-  // ── Animate chars OUT (right → left) ─────────────────────────────────────
+  // ── Animate OUT (right → left) ────────────────────────────────────────────
   function animateOut(spans) {
     return new Promise((resolve) => {
       [...spans].reverse().forEach((s, i) => {
@@ -170,7 +182,7 @@ function initHeroAnimation() {
     return Array.from(target.querySelectorAll(".hw-char"));
   }
 
-  // ── Main loop ─────────────────────────────────────────────────────────────
+  // ── Main cycle ────────────────────────────────────────────────────────────
   async function cycle() {
     // 1. Lines animate IN one by one
     for (const { attr, key } of lines) {
@@ -181,7 +193,7 @@ function initHeroAnimation() {
       await animateIn(spans);
     }
 
-    // 2. All three hold together
+    // 2. Hold — all three visible
     await new Promise((r) => setTimeout(r, HOLD_MS));
 
     // 3. All three animate OUT simultaneously
