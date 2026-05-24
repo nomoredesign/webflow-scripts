@@ -39,7 +39,6 @@
       'opacity:0;' +
       'filter:blur(6px);' +
       'transform:translateY(3px);' +
-      'overflow:hidden;' +
       'transition:' +
         'opacity '   + TRANSITION_MS + 'ms ease,' +
         'filter '    + TRANSITION_MS + 'ms ease,' +
