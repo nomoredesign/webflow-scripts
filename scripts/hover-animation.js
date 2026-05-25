@@ -216,7 +216,7 @@
     /**
      * Swap: dissolve current spans out R→L, then replace DOM with next text,
      * then reveal next spans L→R.
-     * showParens: true when transitioning to alternate, false when returning.
+     * showParens: unused, kept for signature compatibility.
      */
     function swap(nextText, showParens, onDone) {
       if (busy) return;
@@ -225,11 +225,9 @@
       var currentSpans = active.spans;
       var currentLen   = currentSpans.length;
 
-      // Kick off paren animation immediately
-      if (showParens) {
-        showOpenParen(openParen);
-        showCloseParen(closeParen);
-      }
+      // Kick off paren animation immediately (both directions)
+      showOpenParen(openParen);
+      showCloseParen(closeParen);
 
       // Dissolve current text R→L
       for (var i = 0; i < currentLen; i++) {
@@ -266,15 +264,17 @@
         }
 
         var revealTime = animDuration(nextLen);
+
+        // Fade parens out after text is fully revealed (both directions)
         setTimeout(function () {
-          // If returning to default, fade parens out after text is fully in
-          if (!showParens) {
-            hideOpenParen(openParen);
-            hideCloseParen(closeParen);
-          }
+          hideOpenParen(openParen);
+          hideCloseParen(closeParen);
+        }, revealTime);
+
+        setTimeout(function () {
           busy = false;
           if (onDone) onDone();
-        }, revealTime + (showParens ? 0 : PAREN_DURATION_MS));
+        }, revealTime + PAREN_DURATION_MS);
 
       }, dissolveTime);
     }
