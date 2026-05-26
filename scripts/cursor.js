@@ -1,5 +1,5 @@
 // cursor.js - nomoredesign 2026 custom cursor
-// v2.0.0
+// v2.1.0
 //
 // Your original cursor script with two additions:
 //   1. Bracket font-size matches the hovered link computed font-size
@@ -14,15 +14,19 @@
 //   pointer-events: none;
 //   z-index: 9999;
 //   opacity: 1;
-//   transition: opacity 0.3s ease;
+//   transition: opacity 0.3s ease !important;
 //   margin: 0 !important;
 // }
 // .cursor.is-snapping {
 //   transition: width 0.25s ease, height 0.25s ease, transform 0.25s ease, opacity 0.3s ease !important;
 // }
 // .cursor.is-hidden { opacity: 0; }
-// .cursor.is-dark .bracket { color: #fff; }
-// .cursor.is-dark .dot { background: #fff; }
+//
+// Dark mode - uses the page colour scheme variables:
+// .cursor.is-dark {
+//   --color-scheme-1--text: var(--_primitives---colors--white);
+//   --color-scheme-1--background: var(--_primitives---colors--neutral-darkest);
+// }
 
 const cursor   = document.querySelector('.cursor');
 const brackets = document.querySelectorAll('.cursor .bracket');
