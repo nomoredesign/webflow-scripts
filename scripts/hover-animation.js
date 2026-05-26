@@ -100,8 +100,9 @@
       'vertical-align:baseline;' +
       'line-height:1.125;' +
       'white-space:pre;' +
-      'transform-origin:left center;';
-    gsap.set(span, { opacity: 0, filter: 'blur(6px)', scaleX: 0, y: 3 });
+      'max-width:0;' +
+      'overflow:hidden;';
+    gsap.set(span, { opacity: 0, filter: 'blur(6px)', y: 3 });
     return span;
   }
 
@@ -158,7 +159,8 @@
       }, 0);
       timeline.to(closeParen, {
         duration: PAREN_DURATION,
-        opacity: 1, filter: 'blur(0px)', scaleX: 1, y: 0
+        opacity: 1, filter: 'blur(0px)', y: 0,
+        maxWidth: '2em'
       }, 0);
 
       // 2. Dissolve current text R→L
@@ -203,7 +205,8 @@
         });
         timeline.to(closeParen, {
           duration: PAREN_DURATION,
-          opacity: 0, filter: 'blur(6px)', scaleX: 0, y: 3
+          opacity: 0, filter: 'blur(6px)', y: 3,
+          maxWidth: '0'
         }, '<');
 
       }, dissolveTime);
