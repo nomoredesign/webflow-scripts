@@ -23,11 +23,11 @@
   'use strict';
 
   var CHAR_DURATION  = 0.3;
-  var CHAR_STAGGER   = 0.022;
+  var CHAR_STAGGER   = 0.05;
   var PAREN_DURATION = 0.35;
   var PLUS_DURATION  = 0.35;
-  var INITIAL_DELAY  = 1.5;
-  var HOLD_TIME      = 1.5;
+  var INITIAL_DELAY  = 2.5;
+  var HOLD_TIME      = 2.5;
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
