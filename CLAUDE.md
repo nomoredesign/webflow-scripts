@@ -324,6 +324,93 @@ Loaded via Webflow's registered scripts (Site Settings → Custom Code). Uses GS
 ├── scripts/
 │   ├── hero-animation.js
 │   └── hover-animation-v4.js    ← active
+|   └── cursor.js           ← custom cursor (active)
 └── CLAUDE.md
+```
+
+---
+
+## scripts/cursor.js — Custom cursor (active)
+
+### What it does
+
+Replaces the browser cursor with a branded custom cursor element (`.cursor`) that smoothly follows the mouse. It snaps to and matches the dimensions of hovered `<a>` links, mirrors the link's font-size on the two bracket elements, and inverts its colour scheme when the pointer enters any section with `data-scroll="dark"`.
+
+### HTML required in Webflow
+
+```html
+<div class="cursor">
+  <span class="bracket">(</span>
+  <span class="bracket">)</span>
+  <!-- dot-wrapper elements as needed -->
+</div>
+```
+
+The `.cursor` element sits at the top of the `<body>` (outside the page scroll flow).
+
+### CSS to paste into Site Settings > Custom Code > Head
+
+```css
+.cursor {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+  margin: 0 !important;
+}
+.cursor.is-snapping {
+  transition: width 0.25s ease, height 0.25s ease,
+              transform 0.25s ease, opacity 0.3s ease !important;
+}
+.cursor.is-hidden { opacity: 0; }
+
+/* Add your own colour values for the dark-section scheme */
+.cursor.is-dark { /* e.g. filter: invert(1); or swap CSS variables */ }
+```
+
+### Behaviour
+
+| State | Class on `.cursor` | Effect |
+|---|---|---|
+| Default | — | Smooth lag follow at 15% easing per frame |
+| Link hover | `is-snapping` | Snaps to link, matches width/height, bracket font-size matches link |
+| Dark section | `is-dark` | Colour scheme toggled (define `.cursor.is-dark` CSS) |
+| Off screen | `is-hidden` | opacity: 0 |
+
+### Dark section detection (Feature 1)
+
+On every `mousemove` event the script walks up the DOM from `e.target`. If any ancestor element has `data-scroll="dark"`, `is-dark` is added to `.cursor`. The class is removed as soon as the pointer leaves the dark section.
+
+Apply `data-scroll="dark"` to any Webflow section or div that has a dark background:
+
+```html
+<section data-scroll="dark">...</section>
+```
+
+### Bracket font-size matching (Feature 2)
+
+On `mouseenter` for each `<a>`, the script reads `getComputedStyle(link).fontSize` and applies it to both `.bracket` elements via inline `style.fontSize`. On `mouseleave` the inline style is cleared, restoring whatever CSS size the brackets have by default.
+
+### Embedding in Webflow
+
+Load via Site Settings > Custom Code > Footer Code.
+
+⚠️ Always use a commit SHA — never @main
+
+**Current script tag (commit `f885c58`):**
+```html
+<script src="https://cdn.jsdelivr.net/gh/nomoredesign/webflow-scripts@f885c581d3f126672e3ce93eb53e334abeb564bb/scripts/cursor.js"></script>
+```
+
+After every push, get the new SHA with:
+
+```bash
+curl -s -H "Authorization: token YOUR_TOKEN" \
+  "https://api.github.com/repos/nomoredesign/webflow-scripts/commits?path=scripts/cursor.js&per_page=1" \
+  | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['sha'])"
+```
 ```
 
