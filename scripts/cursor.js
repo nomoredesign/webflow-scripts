@@ -1,5 +1,5 @@
 // cursor.js — nomoredesign 2026 custom cursor
-// v1.1.1.0
+// v1.v1.2.0
 //
 // Features:
 //  1. Smooth-follows the mouse with a lag factor
@@ -112,8 +112,6 @@
 
       cursor.style.transform =
                 'translate3d(' + centerX + 'px, ' + centerY + 'px, 0) translate(-50%, -50%)';
-      cursor.style.width  = rect.width  + 'px';
-      cursor.style.height = rect.height + 'px';
         }
 
     requestAnimationFrame(animate);
@@ -129,6 +127,11 @@
       activeLink = link;
       isSnapped  = true;
       cursor.classList.add('is-snapping');
+                // Set size once on enter so the is-snapping CSS transition eases it in.
+                // The animate loop handles position only — not size — while snapped.
+                var snapRect = link.getBoundingClientRect();
+                cursor.style.width  = snapRect.width  + 'px';
+                cursor.style.height = snapRect.height + 'px';
 
       // Feature 2: read the link's computed font-size and apply to brackets
       var linkFontSize = parseFloat(window.getComputedStyle(link).fontSize);
@@ -138,9 +141,9 @@
     link.addEventListener('mouseleave', function () {
             activeLink = null;
 
-      // Reset cursor to default dot size
-      cursor.style.width  = '20px';
-      cursor.style.height = '20px';
+            // Clear inline size so cursor falls back to its CSS size (2rem from Webflow)
+            cursor.style.width  = '';
+            cursor.style.height = '';
 
       // Reset bracket font-size back to CSS default
       setBracketFontSize(null);
