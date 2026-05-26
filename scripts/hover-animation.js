@@ -1,13 +1,9 @@
 /**
  * hover-animation.js
- * nomoredesign 2026 — Hover headline blur-fade animation
+ * nomoredesign 2026 — Hover headline blur-fade animation v3.0.2
  *
  * Uses GSAP (available globally via Webflow) for interruptible,
  * reversible character-level blur-fade animations.
- *
- * Targets any element with [data-hover-headline] and [data-hover-alternate].
- * On desktop: mouseenter/mouseleave triggers the transition.
- * On touch devices: auto-cycles after an initial 1.5s delay.
  *
  * The headline element must have position:relative in CSS.
  *
@@ -21,19 +17,16 @@
 (function () {
   'use strict';
 
-  // ─── Timing constants ────────────────────────────────────────────────────────
-  var CHAR_DURATION  = 0.3;   // seconds per character fade
-  var CHAR_STAGGER   = 0.022; // seconds between each character start
-  var PAREN_DURATION = 0.35;  // seconds for paren fade
-  var INITIAL_DELAY  = 1.5;   // touch: seconds before first auto-cycle
-  var HOLD_TIME      = 1.5;   // touch: seconds to hold alternate text
+  var CHAR_DURATION  = 0.3;
+  var CHAR_STAGGER   = 0.022;
+  var PAREN_DURATION = 0.35;
+  var INITIAL_DELAY  = 1.5;
+  var HOLD_TIME      = 1.5;
 
-  // ─── Touch detection ─────────────────────────────────────────────────────────
   var isTouch = navigator.maxTouchPoints > 0;
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-  /** Create a single character span, initially hidden */
   function makeCharSpan(char) {
     var span = document.createElement('span');
     span.textContent = char;
@@ -41,10 +34,8 @@
       'display:inline-block;' +
       'vertical-align:baseline;' +
       'line-height:1.125;' +
-      'white-space:pre;' +
-      'opacity:0;' +
-      'filter:blur(6px);' +
-      'transform:translateY(3px);';
+      'white-space:pre;';
+    gsap.set(span, { opacity: 0, filter: 'blur(6px)', y: 3 });
     return span;
   }
 
@@ -52,7 +43,6 @@
    * Build DOM nodes and flat span array for a string.
    * Words → nowrap wrapper with per-char spans
    * Spaces → plain text node
-   * Returns { nodes, spans }
    */
   function buildNodes(text) {
     var spans  = [];
@@ -61,7 +51,6 @@
 
     for (var t = 0; t < tokens.length; t++) {
       var token = tokens[t];
-
       if (/^\s+$/.test(token)) {
         nodes.push(document.createTextNode(token));
       } else {
@@ -75,13 +64,14 @@
         nodes.push(wrapper);
       }
     }
-
     return { nodes: nodes, spans: spans };
   }
 
-  /** Build open paren — absolutely positioned, appended last.
-   *  top/bottom:auto lets it sit at the baseline of the first line.
-   *  GSAP controls all transforms — no CSS transform set here.
+  /**
+   * Open paren — absolutely positioned, sits INSIDE textContainer as first child.
+   * position:absolute takes it out of flow so it doesn't push text right.
+   * left:0 anchors to textContainer's left edge (which must be position:relative).
+   * Being inside textContainer means it shares the same line box baseline.
    */
   function buildOpenParen() {
     var span = document.createElement('span');
@@ -89,16 +79,19 @@
     span.style.cssText =
       'position:absolute;' +
       'left:0;' +
+      'top:0;' +
       'display:inline-block;' +
       'line-height:1.125;' +
-      'white-space:pre;' +
-      'opacity:0;';
-    // Set initial GSAP state: pulled left, blurred, shifted down
-    gsap.set(span, { xPercent: -100, y: 3, filter: 'blur(6px)', opacity: 0 });
+      'white-space:pre;';
+    gsap.set(span, { opacity: 0, filter: 'blur(6px)', xPercent: -100, y: 3 });
     return span;
   }
 
-  /** Build close paren — inline, hidden via opacity/scaleX/blur */
+  /**
+   * Close paren — inline, sits INSIDE textContainer as last child.
+   * Being in flow means it naturally trails the last character on any line.
+   * Collapsed via scaleX:0 when hidden so it takes no space.
+   */
   function buildCloseParen() {
     var span = document.createElement('span');
     span.textContent = ')';
@@ -107,8 +100,8 @@
       'vertical-align:baseline;' +
       'line-height:1.125;' +
       'white-space:pre;' +
-      'opacity:0;';
-    gsap.set(span, { scaleX: 0, y: 3, filter: 'blur(6px)', opacity: 0, transformOrigin: 'left center' });
+      'transform-origin:left center;';
+    gsap.set(span, { opacity: 0, filter: 'blur(6px)', scaleX: 0, y: 3 });
     return span;
   }
 
@@ -122,82 +115,82 @@
     el.innerHTML = '';
     el.style.position = 'relative';
 
-    // Text container — only active text lives here
+    // textContainer needs position:relative so open paren's left:0 anchors here
     var textContainer = document.createElement('span');
-    textContainer.style.cssText = 'display:inline;line-height:1.125;';
+    textContainer.style.cssText = 'display:inline;position:relative;line-height:1.125;';
     el.appendChild(textContainer);
 
+    // Parens live INSIDE textContainer so they follow the text's line boxes
+    var openParen  = buildOpenParen();
     var closeParen = buildCloseParen();
-    el.appendChild(closeParen);
 
-    var openParen = buildOpenParen();
-    el.appendChild(openParen);
-
-    // Build and show default text immediately
+    // Populate with default text, shown immediately
+    // DOM order: openParen (abs) | text nodes | closeParen
     var active = buildNodes(defaultText);
+    textContainer.appendChild(openParen);
     active.nodes.forEach(function (n) { textContainer.appendChild(n); });
-    gsap.set(active.spans, { opacity: 1, filter: 'blur(0px)', y: 0, maxWidth: '2em' });
+    textContainer.appendChild(closeParen);
 
-    // The main interruptible timeline
-    var tl = null;
+    gsap.set(active.spans, { opacity: 1, filter: 'blur(0px)', y: 0 });
+
+    var tl   = null;
     var shown = 'default';
 
     /**
-     * Build a GSAP timeline that:
-     * 1. Fades parens in
-     * 2. Dissolves current spans R→L
-     * 3. Swaps DOM to next text
-     * 4. Reveals next spans L→R
-     * 5. Fades parens out
+     * Build a GSAP timeline:
+     * 1. Parens fade in
+     * 2. Current spans dissolve R→L
+     * 3. DOM swapped (next text inserted between parens)
+     * 4. Next spans reveal L→R
+     * 5. Parens fade out
      */
     function buildTimeline(nextText, onComplete) {
-      var currentSpans = active.spans.slice(); // snapshot
+      var currentSpans = active.spans.slice();
       var currentLen   = currentSpans.length;
+      var dissolveTime = currentLen * CHAR_STAGGER + CHAR_DURATION;
 
       var timeline = gsap.timeline({ onComplete: onComplete });
 
-      // 1. Parens in
+      // 1. Parens in (both directions)
       timeline.to(openParen, {
         duration: PAREN_DURATION,
-        opacity: 1,
-        filter: 'blur(0px)',
-        xPercent: -100,
-        y: 0
+        opacity: 1, filter: 'blur(0px)', xPercent: -100, y: 0
       }, 0);
       timeline.to(closeParen, {
         duration: PAREN_DURATION,
-        opacity: 1,
-        filter: 'blur(0px)',
-        scaleX: 1,
-        y: 0
+        opacity: 1, filter: 'blur(0px)', scaleX: 1, y: 0
       }, 0);
 
       // 2. Dissolve current text R→L
       timeline.to(currentSpans.slice().reverse(), {
         duration: CHAR_DURATION,
-        opacity: 0,
-        filter: 'blur(6px)',
-        y: 3,
+        opacity: 0, filter: 'blur(6px)', y: 3,
         stagger: CHAR_STAGGER
       }, 0);
 
-      var dissolveTime = currentLen * CHAR_STAGGER + CHAR_DURATION;
-
-      // 3. Swap DOM at the midpoint (after dissolve completes)
+      // 3. Swap DOM after dissolve — remove old text nodes, insert new ones
+      // keeping openParen first and closeParen last inside textContainer
       timeline.add(function () {
-        while (textContainer.firstChild) textContainer.removeChild(textContainer.firstChild);
+        // Remove everything except the parens
+        var children = Array.prototype.slice.call(textContainer.childNodes);
+        children.forEach(function (child) {
+          if (child !== openParen && child !== closeParen) {
+            textContainer.removeChild(child);
+          }
+        });
+
+        // Insert new text nodes before closeParen
         var next = buildNodes(nextText);
-        next.nodes.forEach(function (n) { textContainer.appendChild(n); });
-        // Set next spans to hidden state so GSAP can animate them in
+        next.nodes.forEach(function (n) {
+          textContainer.insertBefore(n, closeParen);
+        });
         gsap.set(next.spans, { opacity: 0, filter: 'blur(6px)', y: 3 });
         active = next;
 
-        // 4. Reveal next text L→R — added dynamically after DOM swap
+        // 4. Reveal next text L→R
         timeline.to(next.spans, {
           duration: CHAR_DURATION,
-          opacity: 1,
-          filter: 'blur(0px)',
-          y: 0,
+          opacity: 1, filter: 'blur(0px)', y: 0,
           stagger: CHAR_STAGGER
         });
 
@@ -206,16 +199,11 @@
         // 5. Parens out after reveal
         timeline.to(openParen, {
           duration: PAREN_DURATION,
-          opacity: 0,
-          filter: 'blur(6px)',
-          y: 3
+          opacity: 0, filter: 'blur(6px)', xPercent: -100, y: 3
         });
         timeline.to(closeParen, {
           duration: PAREN_DURATION,
-          opacity: 0,
-          filter: 'blur(6px)',
-          scaleX: 0,
-          y: 3
+          opacity: 0, filter: 'blur(6px)', scaleX: 0, y: 3
         }, '<');
 
       }, dissolveTime);
@@ -226,28 +214,24 @@
     function toAlternate() {
       if (tl) tl.kill();
       tl = buildTimeline(alternateText, function () {
-        shown = 'alternate';
-        tl = null;
+        shown = 'alternate'; tl = null;
       });
     }
 
     function toDefault() {
       if (tl) tl.kill();
       tl = buildTimeline(defaultText, function () {
-        shown = 'default';
-        tl = null;
+        shown = 'default'; tl = null;
       });
     }
 
-    // Desktop — interrupt and reverse immediately on hover out
+    // Desktop
     if (!isTouch) {
       el.addEventListener('mouseenter', function () {
-        if (shown === 'default') toAlternate();
-        else if (tl) { tl.kill(); tl = null; toAlternate(); }
+        if (shown === 'default' || tl) toAlternate();
       });
       el.addEventListener('mouseleave', function () {
-        if (shown === 'alternate') toDefault();
-        else if (tl) { tl.kill(); tl = null; toDefault(); }
+        if (shown === 'alternate' || tl) toDefault();
       });
     }
 
@@ -255,12 +239,10 @@
     if (isTouch) {
       function cycle() {
         tl = buildTimeline(alternateText, function () {
-          shown = 'alternate';
-          tl = null;
+          shown = 'alternate'; tl = null;
           setTimeout(function () {
             tl = buildTimeline(defaultText, function () {
-              shown = 'default';
-              tl = null;
+              shown = 'default'; tl = null;
               setTimeout(cycle, HOLD_TIME * 1000);
             });
           }, HOLD_TIME * 1000);
@@ -273,15 +255,9 @@
   // ─── Boot ─────────────────────────────────────────────────────────────────────
 
   function init() {
-    // Wait for GSAP to be available (Webflow loads it async)
-    if (typeof gsap === 'undefined') {
-      setTimeout(init, 50);
-      return;
-    }
+    if (typeof gsap === 'undefined') { setTimeout(init, 50); return; }
     var elements = document.querySelectorAll('[data-hover-headline]');
-    for (var i = 0; i < elements.length; i++) {
-      initElement(elements[i]);
-    }
+    for (var i = 0; i < elements.length; i++) { initElement(elements[i]); }
   }
 
   if (document.readyState === 'loading') {
