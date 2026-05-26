@@ -255,3 +255,75 @@ curl -s -H "Authorization: token YOUR_TOKEN" \
 ```
 
 Then update the `src` in Webflow with the new SHA.
+
+---
+
+## `scripts/hover-animation-v4.js` — Auto-cycling headline animation (active)
+
+This is the current production script, superseding `hover-animation.js` (archived to `archive/`).
+
+### What it does
+
+Auto-cycles between two headline text states on all devices. No hover interaction. A sibling `.plus-sign` element scales down during animation and back up when text is static.
+
+### HTML attribute convention
+
+```html
+<h1 data-hover-headline="Default text here."
+    data-hover-alternate="Alternate text.">
+  Default text here.
+</h1>
+```
+
+The `.plus-sign` element must be a sibling of the `<h1>` inside the same parent:
+
+```html
+<div class="animated-title">
+  <h1 data-hover-headline="..." data-hover-alternate="...">...</h1>
+  <div class="plus-sign">...</div>
+</div>
+```
+
+The headline element must have `position: relative` set in CSS.
+
+### Animation sequence
+
+1. `.plus-sign` scales down to 0, open `(` fades in
+2. Current text dissolves character by character **right → left**
+3. New text reveals character by character **left → right** (with `)` as the last character)
+4. `)` and `(` fade out, `.plus-sign` scales back up to 1
+
+Brackets are visible **during animation only** — never at rest.
+
+### Timing values
+
+| Constant | Value | Purpose |
+|---|---|---|
+| `INITIAL_DELAY` | `2.5s` | Pause before first animation |
+| `HOLD_TIME` | `2.5s` | How long each text state stays visible |
+| `CHAR_DURATION` | `0.3s` | Blur-fade duration per character |
+| `CHAR_STAGGER` | `0.05s` | Delay between each character starting |
+| `PAREN_DURATION` | `0.35s` | Bracket fade duration |
+| `PLUS_DURATION` | `0.35s` | `.plus-sign` scale duration |
+
+### Embedding in Webflow
+
+Loaded via Webflow's registered scripts (Site Settings → Custom Code). Uses GSAP which is available globally via Webflow — no separate GSAP import needed.
+
+**Current script tag (commit `e0331d3e`):**
+```html
+<script src="https://cdn.jsdelivr.net/gh/nomoredesign/webflow-scripts@e0331d3efbb10652f118acbb3f1c977341ecc17c/scripts/hover-animation-v4.js"></script>
+```
+
+### File locations
+
+```
+/
+├── archive/
+│   └── hover-animation.js       ← v3 hover-triggered version (archived)
+├── scripts/
+│   ├── hero-animation.js
+│   └── hover-animation-v4.js    ← active
+└── CLAUDE.md
+```
+
