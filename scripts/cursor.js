@@ -1,11 +1,16 @@
 // cursor.js - nomoredesign 2026 custom cursor
-// v2.1.0
+// v2.2.0
 //
-// Your original cursor script with two additions:
-//   1. Bracket font-size matches the hovered link computed font-size
-//   2. is-dark class toggled when cursor is inside [data-scroll="dark"] sections
+// Original script + two additions only:
+//   1. Bracket font-size + line-height matches hovered link
+//   2. is-dark class toggled when inside [data-scroll="dark"] sections
 //
-// CSS to add to Webflow Site Settings > Custom Code > Head:
+// Fixes vs original:
+//   - mouseleave resets width/height to "" (reverts to CSS 2rem) not "20px"
+//   - when snapped, positions cursor at rect.left/top (no translate(-50%,-50%))
+//     to avoid offset on large link blocks
+//
+// CSS for Webflow Head custom code:
 //
 // .cursor {
 //   position: fixed !important;
@@ -21,8 +26,6 @@
 //   transition: width 0.25s ease, height 0.25s ease, transform 0.25s ease, opacity 0.3s ease !important;
 // }
 // .cursor.is-hidden { opacity: 0; }
-//
-// Dark mode - uses the page colour scheme variables:
 // .cursor.is-dark {
 //   --color-scheme-1--text: var(--_primitives---colors--white);
 //   --color-scheme-1--background: var(--_primitives---colors--neutral-darkest);
@@ -52,26 +55,21 @@ document.addEventListener('mousemove', (e) => {
   cursor.classList.toggle('is-dark', isDark);
 });
 
-document.addEventListener('mouseleave', () => {
-  cursor.classList.add('is-hidden');
-});
-
-document.addEventListener('mouseenter', () => {
-  cursor.classList.remove('is-hidden');
-});
+document.addEventListener('mouseleave', () => cursor.classList.add('is-hidden'));
+document.addEventListener('mouseenter', () => cursor.classList.remove('is-hidden'));
 
 function animate() {
   if (!isSnapped) {
+    // Lag-follow the mouse, centred on pointer via translate(-50%,-50%)
     cursorX += (mouseX - cursorX) * 0.15;
     cursorY += (mouseY - cursorY) * 0.15;
     cursor.style.transform = `translate3d(${cursorX}px, ${cursorY}px, 0) translate(-50%, -50%)`;
   } else if (activeLink) {
-    const rect    = activeLink.getBoundingClientRect();
-    const centerX = rect.left + (rect.width  / 2);
-    const centerY = rect.top  + (rect.height / 2);
-    cursorX = centerX;
-    cursorY = centerY;
-    cursor.style.transform = `translate3d(${centerX}px, ${centerY}px, 0) translate(-50%, -50%)`;
+    // Snap to link rect top-left — no translate(-50%,-50%) so large links dont offset
+    const rect = activeLink.getBoundingClientRect();
+    cursorX = rect.left;
+    cursorY = rect.top;
+    cursor.style.transform = `translate3d(${rect.left}px, ${rect.top}px, 0)`;
     cursor.style.width  = `${rect.width}px`;
     cursor.style.height = `${rect.height}px`;
   }
@@ -87,18 +85,25 @@ links.forEach(link => {
     isSnapped  = true;
     cursor.classList.add('is-snapping');
 
-    // Match bracket font-size to this link
-    const fs = parseFloat(window.getComputedStyle(link).fontSize);
-    brackets.forEach(b => { b.style.fontSize = fs + 'px'; });
+    // Match bracket font-size and line-height to this link
+    const cs = window.getComputedStyle(link);
+    brackets.forEach(b => {
+      b.style.fontSize   = cs.fontSize;
+      b.style.lineHeight = cs.lineHeight;
+    });
   });
 
   link.addEventListener('mouseleave', () => {
     activeLink = null;
-    cursor.style.width  = '20px';
-    cursor.style.height = '20px';
+    // Reset to CSS-defined size (2rem) — empty string reverts to stylesheet value
+    cursor.style.width  = '';
+    cursor.style.height = '';
 
-    // Reset bracket font-size
-    brackets.forEach(b => { b.style.fontSize = ''; });
+    // Reset bracket styles
+    brackets.forEach(b => {
+      b.style.fontSize   = '';
+      b.style.lineHeight = '';
+    });
 
     snapTimer = setTimeout(() => {
       cursor.classList.remove('is-snapping');
