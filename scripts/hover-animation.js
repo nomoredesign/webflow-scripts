@@ -99,9 +99,7 @@
       'display:inline-block;' +
       'vertical-align:baseline;' +
       'line-height:1.125;' +
-      'white-space:pre;' +
-      'max-width:0;' +
-      'overflow:hidden;';
+      'white-space:pre;';
     gsap.set(span, { opacity: 0, filter: 'blur(6px)', y: 3 });
     return span;
   }
@@ -159,8 +157,7 @@
       }, 0);
       timeline.to(closeParen, {
         duration: PAREN_DURATION,
-        opacity: 1, filter: 'blur(0px)', y: 0,
-        maxWidth: '2em'
+        opacity: 1, filter: 'blur(0px)', y: 0
       }, 0);
 
       // 2. Dissolve current text R→L
@@ -205,8 +202,7 @@
         });
         timeline.to(closeParen, {
           duration: PAREN_DURATION,
-          opacity: 0, filter: 'blur(6px)', y: 3,
-          maxWidth: '0'
+          opacity: 0, filter: 'blur(6px)', y: 3
         }, '<');
 
       }, dissolveTime);
