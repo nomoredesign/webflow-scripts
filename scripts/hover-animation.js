@@ -124,11 +124,11 @@
     var closeParen = buildCloseParen();
 
     // Populate with default text, shown immediately
-    // DOM order: openParen (abs) | text nodes | closeParen
+    // openParen is abs-positioned first child; closeParen added dynamically
     var active = buildNodes(defaultText);
     textContainer.appendChild(openParen);
     active.nodes.forEach(function (n) { textContainer.appendChild(n); });
-    textContainer.appendChild(closeParen);
+    // closeParen not in DOM yet — added during transitions only
 
     gsap.set(active.spans, { opacity: 1, filter: 'blur(0px)', y: 0 });
 
@@ -160,6 +160,10 @@
         opacity: 1, filter: 'blur(0px)', y: 0
       }, 0);
 
+      // Remove closeParen from DOM before dissolve so it doesn't sit
+      // at the wrong position during the transition
+      if (closeParen.parentNode) closeParen.parentNode.removeChild(closeParen);
+
       // 2. Dissolve current text R→L
       timeline.to(currentSpans.slice().reverse(), {
         duration: CHAR_DURATION,
@@ -178,11 +182,10 @@
           }
         });
 
-        // Insert new text nodes before closeParen
+        // Insert new text nodes, then append closeParen at the end
         var next = buildNodes(nextText);
-        next.nodes.forEach(function (n) {
-          textContainer.insertBefore(n, closeParen);
-        });
+        next.nodes.forEach(function (n) { textContainer.appendChild(n); });
+        textContainer.appendChild(closeParen);
         gsap.set(next.spans, { opacity: 0, filter: 'blur(6px)', y: 3 });
         active = next;
 
