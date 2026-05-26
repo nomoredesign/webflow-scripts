@@ -1,5 +1,5 @@
 // cursor.js — nomoredesign 2026 custom cursor
-// v1.0.0
+// v1.1.1.0
 //
 // Features:
 //  1. Smooth-follows the mouse with a lag factor
@@ -44,6 +44,9 @@
   var links    = document.querySelectorAll('a');
 
   if (!cursor) return; // bail if cursor element not on page
+    // Move cursor to <body> root — prevents position:fixed from being
+    // broken by any transform on an ancestor (e.g. page-wrapper).
+    document.body.appendChild(cursor);
 
   // --- State ---
   var mouseX = 0, mouseY = 0;
