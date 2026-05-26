@@ -79,34 +79,36 @@
     return { nodes: nodes, spans: spans };
   }
 
-  /** Build open paren — absolutely positioned, appended last */
+  /** Build open paren — absolutely positioned, appended last.
+   *  top/bottom:auto lets it sit at the baseline of the first line.
+   *  GSAP controls all transforms — no CSS transform set here.
+   */
   function buildOpenParen() {
     var span = document.createElement('span');
     span.textContent = '(';
     span.style.cssText =
       'position:absolute;' +
-      'left:0;top:0;' +
+      'left:0;' +
       'display:inline-block;' +
+      'line-height:1.125;' +
       'white-space:pre;' +
-      'opacity:0;' +
-      'filter:blur(6px);' +
-      'transform:translateX(-100%) translateY(3px);';
+      'opacity:0;';
+    // Set initial GSAP state: pulled left, blurred, shifted down
+    gsap.set(span, { xPercent: -100, y: 3, filter: 'blur(6px)', opacity: 0 });
     return span;
   }
 
-  /** Build close paren — inline, will be animated via GSAP */
+  /** Build close paren — inline, hidden via opacity/scaleX/blur */
   function buildCloseParen() {
     var span = document.createElement('span');
     span.textContent = ')';
     span.style.cssText =
       'display:inline-block;' +
       'vertical-align:baseline;' +
+      'line-height:1.125;' +
       'white-space:pre;' +
-      'opacity:0;' +
-      'filter:blur(6px);' +
-      'transform:translateY(3px);' +
-      'max-width:0;' +
-      'overflow:hidden;';
+      'opacity:0;';
+    gsap.set(span, { scaleX: 0, y: 3, filter: 'blur(6px)', opacity: 0, transformOrigin: 'left center' });
     return span;
   }
 
@@ -159,15 +161,15 @@
         duration: PAREN_DURATION,
         opacity: 1,
         filter: 'blur(0px)',
-        x: '-100%',
+        xPercent: -100,
         y: 0
       }, 0);
       timeline.to(closeParen, {
         duration: PAREN_DURATION,
         opacity: 1,
         filter: 'blur(0px)',
-        y: 0,
-        maxWidth: '2em'
+        scaleX: 1,
+        y: 0
       }, 0);
 
       // 2. Dissolve current text R→L
@@ -202,7 +204,7 @@
         var revealTime = next.spans.length * CHAR_STAGGER + CHAR_DURATION;
 
         // 5. Parens out after reveal
-        timeline.to([openParen, closeParen], {
+        timeline.to(openParen, {
           duration: PAREN_DURATION,
           opacity: 0,
           filter: 'blur(6px)',
@@ -210,8 +212,11 @@
         });
         timeline.to(closeParen, {
           duration: PAREN_DURATION,
-          maxWidth: '0'
-        }, '-=' + PAREN_DURATION);
+          opacity: 0,
+          filter: 'blur(6px)',
+          scaleX: 0,
+          y: 3
+        }, '<');
 
       }, dissolveTime);
 
