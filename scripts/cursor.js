@@ -1,22 +1,21 @@
 // cursor.js - nomoredesign 2026 custom cursor
-// v1.3.1
+// v1.4.0
 //
 // Features:
 //   1. Smooth-follows the mouse with a lag factor
-//   2. Snaps to & matches the size of hovered <a> elements (with eased transition)
-//   3. Brackets font-size matches the hovered link's computed font-size
-//   4. Colour scheme inverts (is-dark class) when cursor is inside
-//      any element with [data-scroll="dark"]
-//   5. Self-contained: injects its own CSS so no Webflow CSS is required
+//   2. Snaps to & matches the size of hovered <a> elements (eased transition)
+//   3. Brackets font-size matches the hovered link computed font-size
+//   4. Colour scheme inverts (is-dark class) inside [data-scroll="dark"] sections
+//   5. Self-contained: injects its own CSS
+//   6. Uses event delegation so marquee clones work without re-binding
 //
 // HTML required in Webflow:
 //   <div class="cursor">
 //     <span class="bracket">(</span>
 //     <span class="bracket">)</span>
-//     <!-- dot-wrapper elements etc. -->
 //   </div>
 //
-// In Webflow, set the .cursor element to:
+// Webflow .cursor element settings:
 //   Position: Fixed, Top: 0, Left: 0, z-index: 9999,
 //   Width/Height: 2rem, Pointer events: None, Margin: 0
 
@@ -28,7 +27,7 @@
 
   if (!cursor) return;
 
-  // Inject self-contained CSS
+  // Inject CSS
   var style = document.createElement('style');
   style.textContent =
     '.cursor {' +
@@ -49,13 +48,14 @@
     '.cursor.is-dark .dot { background: #fff; }';
   document.head.appendChild(style);
 
-  // Move to body root so position:fixed works inside transformed ancestors
+  // Move to body root so position:fixed is not broken by transformed ancestors
   document.body.appendChild(cursor);
 
   // State
   var mouseX = 0, mouseY = 0;
   var cursorX = 0, cursorY = 0;
   var lag = 0.12;
+  var currentLink = null;
 
   document.addEventListener('mousemove', function (e) {
     mouseX = e.clientX;
@@ -69,39 +69,33 @@
     cursor.classList.remove('is-hidden');
   });
 
-  // Link hover
-  function onLinkEnter(e) {
-    var link = e.currentTarget;
+  // Event delegation - works for all <a> tags including dynamically cloned ones
+  document.addEventListener('mouseover', function (e) {
+    var link = e.target.closest('a');
+    if (!link || link === currentLink) return;
+    currentLink = link;
     var rect = link.getBoundingClientRect();
-    var fs   = parseFloat(window.getComputedStyle(link).fontSize);
+    var fs = parseFloat(window.getComputedStyle(link).fontSize);
     brackets.forEach(function (b) { b.style.fontSize = fs + 'px'; });
     cursor.classList.add('is-snapping');
     cursor.style.width  = rect.width  + 'px';
     cursor.style.height = rect.height + 'px';
-  }
+  });
 
-  function onLinkLeave() {
+  document.addEventListener('mouseout', function (e) {
+    var link = e.target.closest('a');
+    if (!link || link !== currentLink) return;
+    // Only leave if we are moving outside the link entirely
+    var to = e.relatedTarget ? e.relatedTarget.closest('a') : null;
+    if (to === link) return;
+    currentLink = null;
     cursor.style.width  = '';
     cursor.style.height = '';
     brackets.forEach(function (b) { b.style.fontSize = ''; });
     setTimeout(function () {
       cursor.classList.remove('is-snapping');
     }, 300);
-  }
-
-  function attachLinkListeners() {
-    document.querySelectorAll('a').forEach(function (a) {
-      if (a._cursorBound) return;
-      a._cursorBound = true;
-      a.addEventListener('mouseenter', onLinkEnter);
-      a.addEventListener('mouseleave', onLinkLeave);
-    });
-  }
-
-  attachLinkListeners();
-
-  var observer = new MutationObserver(attachLinkListeners);
-  observer.observe(document.body, { childList: true, subtree: true });
+  });
 
   // Dark section detection
   function updateDarkMode() {
