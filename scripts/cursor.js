@@ -1,16 +1,16 @@
 // cursor.js - nomoredesign 2026 custom cursor
-// v2.2.0
+// v2.3.0
 //
 // Original script + two additions only:
 //   1. Bracket font-size + line-height matches hovered link
 //   2. is-dark class toggled when inside [data-scroll="dark"] sections
 //
-// Fixes vs original:
-//   - mouseleave resets width/height to "" (reverts to CSS 2rem) not "20px"
-//   - when snapped, positions cursor at rect.left/top (no translate(-50%,-50%))
-//     to avoid offset on large link blocks
+// Position strategy: cursorX/Y is always the top-left of the cursor box.
+// Free: top-left = mouse - halfSize (centres cursor on pointer).
+// Snapped: top-left = rect.left/top (aligns cursor exactly to link bounds).
+// No translate(-50%,-50%) — that breaks alignment when cursor size changes.
 //
-// CSS for Webflow Head custom code:
+// CSS for Webflow Site Settings > Custom Code > Head:
 //
 // .cursor {
 //   position: fixed !important;
@@ -34,6 +34,9 @@
 const cursor   = document.querySelector('.cursor');
 const brackets = document.querySelectorAll('.cursor .bracket');
 const links    = document.querySelectorAll('a');
+
+// Read the cursor's natural half-size once (CSS sets it to 2rem)
+const halfSize = cursor.offsetWidth / 2;
 
 let mouseX = 0, mouseY = 0;
 let cursorX = 0, cursorY = 0;
@@ -60,12 +63,14 @@ document.addEventListener('mouseenter', () => cursor.classList.remove('is-hidden
 
 function animate() {
   if (!isSnapped) {
-    // Lag-follow the mouse, centred on pointer via translate(-50%,-50%)
-    cursorX += (mouseX - cursorX) * 0.15;
-    cursorY += (mouseY - cursorY) * 0.15;
-    cursor.style.transform = `translate3d(${cursorX}px, ${cursorY}px, 0) translate(-50%, -50%)`;
+    // Lag-follow: track top-left = mouse minus half the natural cursor size
+    const targetX = mouseX - halfSize;
+    const targetY = mouseY - halfSize;
+    cursorX += (targetX - cursorX) * 0.15;
+    cursorY += (targetY - cursorY) * 0.15;
+    cursor.style.transform = `translate3d(${cursorX}px, ${cursorY}px, 0)`;
   } else if (activeLink) {
-    // Snap to link rect top-left — no translate(-50%,-50%) so large links dont offset
+    // Snap to link top-left exactly
     const rect = activeLink.getBoundingClientRect();
     cursorX = rect.left;
     cursorY = rect.top;
@@ -95,7 +100,7 @@ links.forEach(link => {
 
   link.addEventListener('mouseleave', () => {
     activeLink = null;
-    // Reset to CSS-defined size (2rem) — empty string reverts to stylesheet value
+    // Empty string reverts to CSS-defined size (2rem)
     cursor.style.width  = '';
     cursor.style.height = '';
 
