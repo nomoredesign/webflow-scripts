@@ -66,8 +66,8 @@ function animate() {
     // Lag-follow: track top-left = mouse minus half the natural cursor size
     const targetX = mouseX - halfSize;
     const targetY = mouseY - halfSize;
-    cursorX += (targetX - cursorX) * 0.15;
-    cursorY += (targetY - cursorY) * 0.15;
+    cursorX += (targetX - cursorX) * 0.05;
+    cursorY += (targetY - cursorY) * 0.05;
     cursor.style.transform = `translate3d(${cursorX}px, ${cursorY}px, 0)`;
   } else if (activeLink) {
     // Snap to link top-left exactly
@@ -117,3 +117,4 @@ links.forEach(link => {
     }, 250);
   });
 });
+
