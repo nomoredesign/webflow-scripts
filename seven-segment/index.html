@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seven-Segment Clock</title>
+<style>
+  :root {
+    --digit-size: 200px;        /* height of one digit */
+    --seg-color: #ff3b30;       /* lit segment colour */
+    --bg: #0a0a0a;              /* page / panel background */
+    --off-opacity: 0.10;        /* visibility of unlit "ghost" segments */
+    --glow: 0px;                /* glow radius (0 = off) */
+    --slant: 0deg;              /* digit slant */
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 48px;
+    background: var(--bg);
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    color: #e0e0e0;
+    padding: 32px;
+    transition: background 0.2s;
+    overflow-x: hidden;
+  }
+
+  /* ---------- Clock ---------- */
+  .clock {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--digit-size) * 0.10);
+    transform: skewX(calc(var(--slant) * -1));
+  }
+  .group { display: flex; gap: calc(var(--digit-size) * 0.06); }
+
+  .digit {
+    width: calc(var(--digit-size) * 0.6);
+    height: var(--digit-size);
+    display: block;
+  }
+
+  .seg {
+    fill: var(--seg-color);
+    opacity: var(--off-opacity);
+    transition: opacity 0.12s ease;
+  }
+  .seg.on { opacity: 1; }
+
+  /* glow only on lit segments */
+  .clock.glow .seg.on {
+    filter: drop-shadow(0 0 var(--glow) var(--seg-color));
+  }
+
+  /* colon */
+  .colon {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: calc(var(--digit-size) * 0.18);
+    height: var(--digit-size);
+  }
+  .colon .dot {
+    width: calc(var(--digit-size) * 0.1);
+    height: calc(var(--digit-size) * 0.1);
+    border-radius: 50%;
+    background: var(--seg-color);
+    animation: blink 2s steps(1) infinite;
+  }
+  .clock.glow .colon .dot {
+    filter: drop-shadow(0 0 var(--glow) var(--seg-color));
+  }
+  @keyframes blink { 50% { opacity: 0.25; } }
+
+  /* ---------- Controls ---------- */
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 20px 28px;
+    width: 100%;
+    max-width: 820px;
+    background: #151515;
+    border: 1px solid #262626;
+    border-radius: 16px;
+    padding: 24px 28px;
+  }
+  .control { display: flex; flex-direction: column; gap: 8px; }
+  .control label {
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #888;
+  }
+  .control .value { color: #ccc; font-variant-numeric: tabular-nums; }
+  .control input[type="range"] { width: 100%; accent-color: #7c5cff; }
+  .control input[type="color"] {
+    width: 100%;
+    height: 40px;
+    border: 1px solid #333;
+    border-radius: 8px;
+    background: #0d0d0d;
+    cursor: pointer;
+  }
+  .control-wide { grid-column: 1 / -1; display: flex; gap: 12px; flex-wrap: wrap; }
+  .toggle {
+    flex: 1;
+    min-width: 130px;
+    padding: 10px 12px;
+    background: #0d0d0d;
+    color: #e0e0e0;
+    border: 1px solid #333;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .toggle.active { background: #7c5cff; border-color: #7c5cff; color: #fff; }
+  .toggle:hover { border-color: #7c5cff; }
+</style>
+</head>
+<body>
+
+  <div class="clock" id="clock">
+    <div class="group" data-unit="hours"></div>
+    <div class="colon"><span class="dot"></span><span class="dot"></span></div>
+    <div class="group" data-unit="minutes"></div>
+    <div class="colon" data-seconds-sep><span class="dot"></span><span class="dot"></span></div>
+    <div class="group" data-unit="seconds" data-seconds-group></div>
+  </div>
+
+  <div class="controls">
+    <div class="control">
+      <label>Size <span class="value" id="sizeVal"></span></label>
+      <input type="range" id="size" min="80" max="360" step="10">
+    </div>
+    <div class="control">
+      <label>Segment colour</label>
+      <input type="color" id="segColor">
+    </div>
+    <div class="control">
+      <label>Background</label>
+      <input type="color" id="bgColor">
+    </div>
+    <div class="control">
+      <label>Off-segment dimness <span class="value" id="offVal"></span></label>
+      <input type="range" id="off" min="0" max="30" step="1">
+    </div>
+    <div class="control">
+      <label>Glow <span class="value" id="glowVal"></span></label>
+      <input type="range" id="glow" min="0" max="40" step="1">
+    </div>
+    <div class="control">
+      <label>Slant <span class="value" id="slantVal"></span></label>
+      <input type="range" id="slant" min="0" max="20" step="1">
+    </div>
+
+    <div class="control-wide">
+      <button class="toggle" id="formatToggle">24-hour</button>
+      <button class="toggle active" id="secondsToggle">Show seconds</button>
+    </div>
+  </div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var clock = document.getElementById('clock');
+
+  // SVG geometry for one seven-segment digit (viewBox 0 0 120 200)
+  var SEG_POINTS = {
+    a: '28,18 36,10 84,10 92,18 84,26 36,26',
+    b: '102,28 110,36 110,82 102,90 94,82 94,36',
+    c: '102,110 110,118 110,164 102,172 94,164 94,118',
+    d: '28,182 36,174 84,174 92,182 84,190 36,190',
+    e: '18,110 26,118 26,164 18,172 10,164 10,118',
+    f: '18,28 26,36 26,82 18,90 10,82 10,36',
+    g: '28,100 36,92 84,92 92,100 84,108 36,108'
+  };
+
+  // which segments are lit for each character
+  var SEG_MAP = {
+    '0': 'abcdef',
+    '1': 'bc',
+    '2': 'abged',
+    '3': 'abgcd',
+    '4': 'fgbc',
+    '5': 'afgcd',
+    '6': 'afgedc',
+    '7': 'abc',
+    '8': 'abcdefg',
+    '9': 'abcdfg',
+    ' ': ''
+  };
+
+  var SVGNS = 'http://www.w3.org/2000/svg';
+
+  function makeDigit() {
+    var svg = document.createElementNS(SVGNS, 'svg');
+    svg.setAttribute('class', 'digit');
+    svg.setAttribute('viewBox', '0 0 120 200');
+    var segs = {};
+    Object.keys(SEG_POINTS).forEach(function (key) {
+      var poly = document.createElementNS(SVGNS, 'polygon');
+      poly.setAttribute('class', 'seg');
+      poly.setAttribute('points', SEG_POINTS[key]);
+      svg.appendChild(poly);
+      segs[key] = poly;
+    });
+    svg._segs = segs;
+    return svg;
+  }
+
+  function setDigit(svg, char) {
+    if (svg._current === char) return;
+    var lit = SEG_MAP[char] || '';
+    Object.keys(svg._segs).forEach(function (key) {
+      svg._segs[key].classList.toggle('on', lit.indexOf(key) !== -1);
+    });
+    svg._current = char;
+  }
+
+  // create two digits in each group
+  var groups = {};
+  Array.prototype.forEach.call(document.querySelectorAll('.group'), function (g) {
+    var d1 = makeDigit(), d2 = makeDigit();
+    g.appendChild(d1);
+    g.appendChild(d2);
+    groups[g.getAttribute('data-unit')] = [d1, d2];
+  });
+
+  // ----- Clock tick -----
+  var use24 = true;
+  var showSeconds = true;
+
+  function render() {
+    var now = new Date();
+    var h = now.getHours();
+    if (!use24) { h = h % 12; if (h === 0) h = 12; }
+    var hh = String(h).padStart(2, '0');
+    var mm = String(now.getMinutes()).padStart(2, '0');
+    var ss = String(now.getSeconds()).padStart(2, '0');
+
+    setDigit(groups.hours[0], hh[0]);
+    setDigit(groups.hours[1], hh[1]);
+    setDigit(groups.minutes[0], mm[0]);
+    setDigit(groups.minutes[1], mm[1]);
+    if (showSeconds) {
+      setDigit(groups.seconds[0], ss[0]);
+      setDigit(groups.seconds[1], ss[1]);
+    }
+  }
+
+  render();
+  setInterval(render, 1000);
+
+  // ----- Controls -----
+  function $(id) { return document.getElementById(id); }
+
+  var size = $('size'), sizeVal = $('sizeVal');
+  var segColor = $('segColor');
+  var bgColor = $('bgColor');
+  var off = $('off'), offVal = $('offVal');
+  var glow = $('glow'), glowVal = $('glowVal');
+  var slant = $('slant'), slantVal = $('slantVal');
+  var formatToggle = $('formatToggle');
+  var secondsToggle = $('secondsToggle');
+  var secondsGroup = document.querySelector('[data-seconds-group]');
+  var secondsSep = document.querySelector('[data-seconds-sep]');
+
+  function readVar(name) {
+    return getComputedStyle(root).getPropertyValue(name).trim();
+  }
+
+  // init control values from CSS defaults
+  var initialSize = parseInt(readVar('--digit-size'), 10) || 200;
+  size.value = initialSize;
+  sizeVal.textContent = initialSize + 'px';
+
+  segColor.value = '#ff3b30';
+  bgColor.value = '#0a0a0a';
+
+  var initialOff = Math.round(parseFloat(readVar('--off-opacity')) * 100) || 10;
+  off.value = initialOff;
+  offVal.textContent = initialOff + '%';
+
+  glow.value = 0;
+  glowVal.textContent = 'off';
+
+  slant.value = 0;
+  slantVal.textContent = '0°';
+
+  size.addEventListener('input', function () {
+    root.style.setProperty('--digit-size', this.value + 'px');
+    sizeVal.textContent = this.value + 'px';
+  });
+
+  segColor.addEventListener('input', function () {
+    root.style.setProperty('--seg-color', this.value);
+  });
+
+  bgColor.addEventListener('input', function () {
+    root.style.setProperty('--bg', this.value);
+  });
+
+  off.addEventListener('input', function () {
+    root.style.setProperty('--off-opacity', (this.value / 100).toString());
+    offVal.textContent = this.value + '%';
+  });
+
+  glow.addEventListener('input', function () {
+    var v = parseInt(this.value, 10);
+    root.style.setProperty('--glow', v + 'px');
+    glowVal.textContent = v === 0 ? 'off' : v + 'px';
+    clock.classList.toggle('glow', v > 0);
+  });
+
+  slant.addEventListener('input', function () {
+    root.style.setProperty('--slant', this.value + 'deg');
+    slantVal.textContent = this.value + '°';
+  });
+
+  formatToggle.addEventListener('click', function () {
+    use24 = !use24;
+    this.textContent = use24 ? '24-hour' : '12-hour';
+    this.classList.toggle('active', !use24);
+    render();
+  });
+
+  secondsToggle.addEventListener('click', function () {
+    showSeconds = !showSeconds;
+    this.classList.toggle('active', showSeconds);
+    secondsGroup.style.display = showSeconds ? '' : 'none';
+    secondsSep.style.display = showSeconds ? '' : 'none';
+    if (showSeconds) render();
+  });
+})();
+</script>
+</body>
+</html>
+
