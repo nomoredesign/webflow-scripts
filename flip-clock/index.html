@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flip Clock</title>
+<style>
+  :root {
+    --digit-size: 140px;
+    --digit-color: #f5f5f5;
+    --card-bg: #1a1a1a;
+    --card-divider: rgba(0, 0, 0, 0.4);
+    --digit-font: 'Helvetica Neue', Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 48px;
+    background: #0d0d0d;
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    color: #e0e0e0;
+    padding: 32px;
+    overflow-x: hidden;
+  }
+
+  /* ---------- Clock ---------- */
+  .clock {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--digit-size) * 0.18);
+    perspective: 1200px;
+  }
+
+  .group {
+    display: flex;
+    gap: calc(var(--digit-size) * 0.08);
+  }
+
+  .separator {
+    font-size: calc(var(--digit-size) * 0.5);
+    font-weight: 700;
+    color: var(--digit-color);
+    font-family: var(--digit-font);
+    line-height: 1;
+    opacity: 0.85;
+    animation: blink 2s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0.25; } }
+
+  /* Each flipping digit */
+  .flip {
+    position: relative;
+    width: calc(var(--digit-size) * 0.66);
+    height: var(--digit-size);
+    font-size: var(--digit-size);
+    font-family: var(--digit-font);
+    font-weight: 700;
+    line-height: var(--digit-size);
+    border-radius: calc(var(--digit-size) * 0.08);
+  }
+
+  .flip .card-face {
+    display: block;
+    width: 100%;
+    height: 50%;
+    overflow: hidden;
+    position: absolute;
+    left: 0;
+  }
+
+  /* digit text positioning helper */
+  .flip .text {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: var(--digit-size);
+    text-align: center;
+    color: var(--digit-color);
+    background: var(--card-bg);
+  }
+
+  /* Top half static */
+  .flip .top {
+    top: 0;
+    border-radius: calc(var(--digit-size) * 0.08) calc(var(--digit-size) * 0.08) 0 0;
+    border-bottom: 1px solid var(--card-divider);
+    z-index: 1;
+  }
+  .flip .top .text { top: 0; }
+
+  /* Bottom half static */
+  .flip .bottom {
+    bottom: 0;
+    border-radius: 0 0 calc(var(--digit-size) * 0.08) calc(var(--digit-size) * 0.08);
+    z-index: 1;
+  }
+  .flip .bottom .text { bottom: 0; }
+
+  /* The two animated flipping leaves */
+  .flip .flip-top,
+  .flip .flip-bottom {
+    z-index: 2;
+    backface-visibility: hidden;
+  }
+  .flip .flip-top {
+    top: 0;
+    transform-origin: bottom;
+    border-radius: calc(var(--digit-size) * 0.08) calc(var(--digit-size) * 0.08) 0 0;
+    border-bottom: 1px solid var(--card-divider);
+  }
+  .flip .flip-top .text { top: 0; }
+
+  .flip .flip-bottom {
+    bottom: 0;
+    transform-origin: top;
+    transform: rotateX(90deg);
+    border-radius: 0 0 calc(var(--digit-size) * 0.08) calc(var(--digit-size) * 0.08);
+  }
+  .flip .flip-bottom .text { bottom: 0; }
+
+  .flip.flipping .flip-top {
+    animation: flipTop 0.3s ease-in forwards;
+  }
+  .flip.flipping .flip-bottom {
+    animation: flipBottom 0.3s ease-out 0.3s forwards;
+  }
+  @keyframes flipTop {
+    0%   { transform: rotateX(0deg); }
+    100% { transform: rotateX(-90deg); }
+  }
+  @keyframes flipBottom {
+    0%   { transform: rotateX(90deg); }
+    100% { transform: rotateX(0deg); }
+  }
+
+  /* subtle shadow under each card stack */
+  .flip::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: calc(var(--digit-size) * 0.08);
+    box-shadow: 0 calc(var(--digit-size) * 0.04) calc(var(--digit-size) * 0.12) rgba(0,0,0,0.5);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ---------- Controls ---------- */
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 20px 28px;
+    width: 100%;
+    max-width: 760px;
+    background: #151515;
+    border: 1px solid #262626;
+    border-radius: 16px;
+    padding: 24px 28px;
+  }
+  .control { display: flex; flex-direction: column; gap: 8px; }
+  .control label {
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #888;
+  }
+  .control .value { color: #ccc; font-variant-numeric: tabular-nums; }
+  .control input[type="range"] { width: 100%; accent-color: #7c5cff; }
+  .control input[type="color"] {
+    width: 100%;
+    height: 40px;
+    border: 1px solid #333;
+    border-radius: 8px;
+    background: #0d0d0d;
+    cursor: pointer;
+  }
+  .control select {
+    width: 100%;
+    padding: 10px 12px;
+    background: #0d0d0d;
+    color: #e0e0e0;
+    border: 1px solid #333;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .control-wide { grid-column: 1 / -1; display: flex; gap: 12px; flex-wrap: wrap; }
+  .toggle {
+    flex: 1;
+    min-width: 140px;
+    padding: 10px 12px;
+    background: #0d0d0d;
+    color: #e0e0e0;
+    border: 1px solid #333;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .toggle.active { background: #7c5cff; border-color: #7c5cff; color: #fff; }
+  .toggle:hover { border-color: #7c5cff; }
+</style>
+</head>
+<body>
+
+  <div class="clock" id="clock">
+    <div class="group" data-unit="hours">
+      <div class="flip" data-digit></div>
+      <div class="flip" data-digit></div>
+    </div>
+    <div class="separator">:</div>
+    <div class="group" data-unit="minutes">
+      <div class="flip" data-digit></div>
+      <div class="flip" data-digit></div>
+    </div>
+    <div class="separator" data-seconds-sep>:</div>
+    <div class="group" data-unit="seconds" data-seconds-group>
+      <div class="flip" data-digit></div>
+      <div class="flip" data-digit></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="control">
+      <label>Size <span class="value" id="sizeVal"></span></label>
+      <input type="range" id="size" min="60" max="280" step="5">
+    </div>
+
+    <div class="control">
+      <label>Digit colour</label>
+      <input type="color" id="digitColor">
+    </div>
+
+    <div class="control">
+      <label>Card colour</label>
+      <input type="color" id="cardColor">
+    </div>
+
+    <div class="control">
+      <label>Font</label>
+      <select id="font">
+        <option value="'Helvetica Neue', Arial, sans-serif">Helvetica / Arial</option>
+        <option value="Georgia, 'Times New Roman', serif">Georgia (serif)</option>
+        <option value="'Courier New', monospace">Courier (mono)</option>
+        <option value="'Trebuchet MS', sans-serif">Trebuchet</option>
+        <option value="Impact, sans-serif">Impact</option>
+        <option value="'Brush Script MT', cursive">Brush Script</option>
+        <option value="Verdana, sans-serif">Verdana</option>
+      </select>
+    </div>
+
+    <div class="control-wide">
+      <button class="toggle" id="formatToggle">24-hour</button>
+      <button class="toggle active" id="secondsToggle">Show seconds</button>
+    </div>
+  </div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+
+  // ----- Build the digit-stack markup once per .flip element -----
+  function buildDigit(el) {
+    el.innerHTML =
+      '<div class="card-face top"><div class="text"></div></div>' +
+      '<div class="card-face bottom"><div class="text"></div></div>' +
+      '<div class="card-face flip-top"><div class="text"></div></div>' +
+      '<div class="card-face flip-bottom"><div class="text"></div></div>';
+    el._current = null;
+  }
+
+  var digits = Array.prototype.slice.call(document.querySelectorAll('[data-digit]'));
+  digits.forEach(buildDigit);
+
+  function setDigit(el, value) {
+    if (el._current === value) return;
+
+    var top = el.querySelector('.top .text');
+    var bottom = el.querySelector('.bottom .text');
+    var flipTop = el.querySelector('.flip-top .text');
+    var flipBottom = el.querySelector('.flip-bottom .text');
+
+    var previous = el._current === null ? value : el._current;
+
+    // During the flip:
+    //  - static top already shows the NEW value (revealed as the leaf falls away)
+    //  - static bottom still shows the OLD value (until the bottom leaf lands)
+    //  - the falling top leaf shows the OLD value
+    //  - the incoming bottom leaf shows the NEW value
+    top.textContent = value;
+    flipTop.textContent = previous;
+    bottom.textContent = previous;
+    flipBottom.textContent = value;
+
+    // restart animation
+    el.classList.remove('flipping');
+    void el.offsetWidth; // reflow
+    el.classList.add('flipping');
+
+    // when the flip finishes, settle both static halves to the new value
+    window.clearTimeout(el._settle);
+    el._settle = window.setTimeout(function () {
+      bottom.textContent = value;
+      el.classList.remove('flipping');
+    }, 620);
+
+    el._current = value;
+  }
+
+  // ----- Clock tick -----
+  var use24 = true;
+  var showSeconds = true;
+
+  function render() {
+    var now = new Date();
+    var h = now.getHours();
+    var m = now.getMinutes();
+    var s = now.getSeconds();
+
+    if (!use24) {
+      h = h % 12;
+      if (h === 0) h = 12;
+    }
+
+    var hh = String(h).padStart(2, '0');
+    var mm = String(m).padStart(2, '0');
+    var ss = String(s).padStart(2, '0');
+
+    setDigit(digits[0], hh[0]);
+    setDigit(digits[1], hh[1]);
+    setDigit(digits[2], mm[0]);
+    setDigit(digits[3], mm[1]);
+    if (showSeconds) {
+      setDigit(digits[4], ss[0]);
+      setDigit(digits[5], ss[1]);
+    }
+  }
+
+  render();
+  setInterval(render, 1000);
+
+  // ----- Controls -----
+  var sizeInput = document.getElementById('size');
+  var sizeVal = document.getElementById('sizeVal');
+  var digitColor = document.getElementById('digitColor');
+  var cardColor = document.getElementById('cardColor');
+  var fontSelect = document.getElementById('font');
+  var formatToggle = document.getElementById('formatToggle');
+  var secondsToggle = document.getElementById('secondsToggle');
+  var secondsGroup = document.querySelector('[data-seconds-group]');
+  var secondsSep = document.querySelector('[data-seconds-sep]');
+
+  // Defaults pulled from CSS variables
+  function readVar(name) {
+    return getComputedStyle(root).getPropertyValue(name).trim();
+  }
+
+  // helper: darken a hex colour for the card divider
+  function shade(hex, amount) {
+    var c = hex.replace('#', '');
+    if (c.length === 3) c = c.split('').map(function (x) { return x + x; }).join('');
+    var n = parseInt(c, 16);
+    var r = Math.max(0, Math.min(255, (n >> 16) + amount));
+    var g = Math.max(0, Math.min(255, ((n >> 8) & 0xff) + amount));
+    var b = Math.max(0, Math.min(255, (n & 0xff) + amount));
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+  }
+
+  // init control values
+  var initialSize = parseInt(readVar('--digit-size'), 10) || 140;
+  sizeInput.value = initialSize;
+  sizeVal.textContent = initialSize + 'px';
+  digitColor.value = '#f5f5f5';
+  cardColor.value = '#1a1a1a';
+
+  sizeInput.addEventListener('input', function () {
+    root.style.setProperty('--digit-size', this.value + 'px');
+    sizeVal.textContent = this.value + 'px';
+  });
+
+  digitColor.addEventListener('input', function () {
+    root.style.setProperty('--digit-color', this.value);
+  });
+
+  cardColor.addEventListener('input', function () {
+    root.style.setProperty('--card-bg', this.value);
+    root.style.setProperty('--card-divider', shade(this.value, -40));
+  });
+
+  fontSelect.addEventListener('change', function () {
+    root.style.setProperty('--digit-font', this.value);
+  });
+
+  formatToggle.addEventListener('click', function () {
+    use24 = !use24;
+    this.textContent = use24 ? '24-hour' : '12-hour';
+    this.classList.toggle('active', !use24);
+    render();
+  });
+
+  secondsToggle.addEventListener('click', function () {
+    showSeconds = !showSeconds;
+    this.classList.toggle('active', showSeconds);
+    secondsGroup.style.display = showSeconds ? '' : 'none';
+    secondsSep.style.display = showSeconds ? '' : 'none';
+    if (showSeconds) render();
+  });
+})();
+</script>
+</body>
+</html>
