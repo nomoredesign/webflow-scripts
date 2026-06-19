@@ -209,7 +209,7 @@
 
     <div class="control-wide">
       <button class="toggle" id="formatToggle">24-hour</button>
-      <button class="toggle active" id="secondsToggle">Show seconds</button>
+      <button class="toggle" id="secondsToggle">Show seconds</button>
     </div>
   </div>
 
@@ -282,7 +282,7 @@
 
   // ----- Clock tick -----
   var use24 = true;
-  var showSeconds = true;
+  var showSeconds = false;
 
   function render() {
     var now = new Date();
@@ -318,6 +318,11 @@
   var secondsToggle = $('secondsToggle');
   var secondsGroup = document.querySelector('[data-seconds-group]');
   var secondsSep = document.querySelector('[data-seconds-sep]');
+
+  // apply the initial seconds visibility (default: hidden)
+  secondsToggle.classList.toggle('active', showSeconds);
+  secondsGroup.style.display = showSeconds ? '' : 'none';
+  secondsSep.style.display = showSeconds ? '' : 'none';
 
   function readVar(name) {
     return getComputedStyle(root).getPropertyValue(name).trim();
