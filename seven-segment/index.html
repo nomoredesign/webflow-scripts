@@ -122,6 +122,43 @@
   }
   .toggle.active { background: #7c5cff; border-color: #7c5cff; color: #fff; }
   .toggle:hover { border-color: #7c5cff; }
+
+  /* ---------- Floating toolbar ---------- */
+  .toolbar {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+  }
+  .toolbar button {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(20, 20, 20, 0.7);
+    color: #ddd;
+    border: 1px solid #333;
+    border-radius: 10px;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+    transition: background 0.15s, border-color 0.15s, opacity 0.3s;
+  }
+  .toolbar button:hover { border-color: #7c5cff; color: #fff; }
+  .toolbar button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .toolbar button .icon-exit { display: none; }
+  .toolbar button.is-active .icon-enter { display: none; }
+  .toolbar button.is-active .icon-exit { display: block; }
+
+  /* hidden-menu state */
+  body.menu-hidden .controls { display: none; }
+
+  /* let the toolbar fade out when idle in fullscreen for a clean look */
+  body.immersive .toolbar { opacity: 0; }
+  body.immersive .toolbar:hover,
+  body.immersive.toolbar-awake .toolbar { opacity: 1; }
 </style>
 </head>
 <body>
@@ -132,6 +169,16 @@
     <div class="group" data-unit="minutes"></div>
     <div class="colon" data-seconds-sep><span class="dot"></span><span class="dot"></span></div>
     <div class="group" data-unit="seconds" data-seconds-group></div>
+  </div>
+
+  <div class="toolbar">
+    <button id="menuToggle" title="Hide / show menu" aria-label="Hide or show menu">
+      <svg viewBox="0 0 24 24"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    </button>
+    <button id="fsToggle" class="" title="Toggle full screen" aria-label="Toggle full screen">
+      <svg class="icon-enter" viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4M20 9V5a1 1 0 0 0-1-1h-4M4 15v4a1 1 0 0 0 1 1h4M20 15v4a1 1 0 0 1-1 1h-4"/></svg>
+      <svg class="icon-exit" viewBox="0 0 24 24"><path d="M9 4v3a2 2 0 0 1-2 2H4M15 4v3a2 2 0 0 0 2 2h3M9 20v-3a2 2 0 0 0-2-2H4M15 20v-3a2 2 0 0 1 2-2h3"/></svg>
+    </button>
   </div>
 
   <div class="controls">
@@ -337,6 +384,57 @@
     secondsGroup.style.display = showSeconds ? '' : 'none';
     secondsSep.style.display = showSeconds ? '' : 'none';
     if (showSeconds) render();
+  });
+
+  // ----- Hide / show menu -----
+  var menuToggle = $('menuToggle');
+  menuToggle.addEventListener('click', function () {
+    document.body.classList.toggle('menu-hidden');
+  });
+  // press "h" to toggle the menu too
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'h' || e.key === 'H') {
+      document.body.classList.toggle('menu-hidden');
+    }
+  });
+
+  // ----- Full screen -----
+  var fsToggle = $('fsToggle');
+
+  function isFullscreen() {
+    return document.fullscreenElement || document.webkitFullscreenElement;
+  }
+  function enterFullscreen() {
+    var el = document.documentElement;
+    if (el.requestFullscreen) el.requestFullscreen();
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  }
+  function exitFullscreen() {
+    if (document.exitFullscreen) document.exitFullscreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+  }
+  fsToggle.addEventListener('click', function () {
+    if (isFullscreen()) exitFullscreen();
+    else enterFullscreen();
+  });
+
+  function syncFullscreen() {
+    var on = !!isFullscreen();
+    fsToggle.classList.toggle('is-active', on);
+    document.body.classList.toggle('immersive', on);
+  }
+  document.addEventListener('fullscreenchange', syncFullscreen);
+  document.addEventListener('webkitfullscreenchange', syncFullscreen);
+
+  // briefly reveal the toolbar on mouse move while immersive, then let it fade
+  var awakeTimer;
+  document.addEventListener('mousemove', function () {
+    if (!document.body.classList.contains('immersive')) return;
+    document.body.classList.add('toolbar-awake');
+    clearTimeout(awakeTimer);
+    awakeTimer = setTimeout(function () {
+      document.body.classList.remove('toolbar-awake');
+    }, 2000);
   });
 })();
 </script>
