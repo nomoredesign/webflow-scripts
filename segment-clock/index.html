@@ -12,6 +12,7 @@
     --off-opacity: 0.10;        /* visibility of unlit "ghost" segments */
     --glow: 0px;                /* glow radius (0 = off) */
     --slant: 0deg;              /* digit slant */
+    --line-color: #ff3b30;      /* orbital ring lines */
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -91,23 +92,31 @@
   .orbital .disc { fill: var(--seg-color); }
   .orbital .ring {
     fill: none;
-    stroke: var(--seg-color);
+    stroke: var(--line-color);
     stroke-width: 3;
   }
   .orbital .marker { fill: var(--seg-color); }
   .orbital .marker.hollow {
     fill: var(--bg);
-    stroke: var(--seg-color);
+    stroke: var(--line-color);
     stroke-width: 3;
   }
   .orbital.glow .disc,
-  .orbital.glow .ring,
   .orbital.glow .marker {
     filter: drop-shadow(0 0 var(--glow) var(--seg-color));
   }
+  .orbital.glow .ring {
+    filter: drop-shadow(0 0 var(--glow) var(--line-color));
+  }
 
-  /* hide segment-only controls when the orbital face is active */
+  /* optional pieces of the orbital face */
+  .orbital.no-disc .disc { display: none; }
+  .orbital.no-seconds .ring-seconds,
+  .orbital.no-seconds #secondMarker { display: none; }
+
+  /* show controls relevant to the active face only */
   body.face-orbital [data-only="segments"] { display: none; }
+  body:not(.face-orbital) [data-only="orbital"] { display: none; }
 
   /* ---------- Controls ---------- */
   .controls {
@@ -206,7 +215,7 @@
     <circle class="disc" cx="200" cy="200" r="95"></circle>
     <circle class="ring" cx="200" cy="200" r="120"></circle>
     <circle class="ring" cx="200" cy="200" r="150"></circle>
-    <circle class="ring" cx="200" cy="200" r="180"></circle>
+    <circle class="ring ring-seconds" cx="200" cy="200" r="180"></circle>
     <circle class="marker hollow" id="hourMarker" r="16"></circle>
     <circle class="marker" id="minuteMarker" r="12"></circle>
     <circle class="marker" id="secondMarker" r="11"></circle>
@@ -252,10 +261,19 @@
       <label>Slant <span class="value" id="slantVal"></span></label>
       <input type="range" id="slant" min="0" max="20" step="1">
     </div>
+    <div class="control" data-only="orbital">
+      <label>Line colour</label>
+      <input type="color" id="lineColor">
+    </div>
 
     <div class="control-wide" data-only="segments">
       <button class="toggle" id="formatToggle">24-hour</button>
       <button class="toggle" id="secondsToggle">Show seconds</button>
+    </div>
+
+    <div class="control-wide" data-only="orbital">
+      <button class="toggle active" id="orbSeconds">Show seconds</button>
+      <button class="toggle active" id="orbCentre">Show centre</button>
     </div>
   </div>
 
@@ -402,6 +420,7 @@
   var size = $('size'), sizeVal = $('sizeVal');
   var segColor = $('segColor');
   var bgColor = $('bgColor');
+  var lineColor = $('lineColor');
   var off = $('off'), offVal = $('offVal');
   var glow = $('glow'), glowVal = $('glowVal');
   var slant = $('slant'), slantVal = $('slantVal');
@@ -426,6 +445,7 @@
 
   segColor.value = '#ff3b30';
   bgColor.value = '#0a0a0a';
+  lineColor.value = '#ff3b30';
 
   var initialOff = Math.round(parseFloat(readVar('--off-opacity')) * 100) || 10;
   off.value = initialOff;
@@ -448,6 +468,10 @@
 
   bgColor.addEventListener('input', function () {
     root.style.setProperty('--bg', this.value);
+  });
+
+  lineColor.addEventListener('input', function () {
+    root.style.setProperty('--line-color', this.value);
   });
 
   off.addEventListener('input', function () {
@@ -503,6 +527,18 @@
 
   faceSegments.addEventListener('click', function () { setFace('segments'); });
   faceOrbital.addEventListener('click', function () { setFace('orbital'); });
+
+  // orbital: show/hide the seconds ring + marker
+  $('orbSeconds').addEventListener('click', function () {
+    this.classList.toggle('active');
+    orbital.classList.toggle('no-seconds', !this.classList.contains('active'));
+  });
+
+  // orbital: show/hide the centre disc
+  $('orbCentre').addEventListener('click', function () {
+    this.classList.toggle('active');
+    orbital.classList.toggle('no-disc', !this.classList.contains('active'));
+  });
 
   // ----- Hide / show menu -----
   var menuToggle = $('menuToggle');
