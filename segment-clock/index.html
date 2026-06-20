@@ -78,6 +78,37 @@
   }
   @keyframes blink { 50% { opacity: 0.25; } }
 
+  /* ---------- Orbital face ---------- */
+  .orbital {
+    width: calc(var(--digit-size) * 2.2);
+    height: calc(var(--digit-size) * 2.2);
+    display: none;                 /* shown when its face is selected */
+    transform: skewX(calc(var(--slant) * -1));
+  }
+  body.face-orbital .clock { display: none; }
+  body.face-orbital .orbital { display: block; }
+
+  .orbital .disc { fill: var(--seg-color); }
+  .orbital .ring {
+    fill: none;
+    stroke: var(--seg-color);
+    stroke-width: 3;
+  }
+  .orbital .marker { fill: var(--seg-color); }
+  .orbital .marker.hollow {
+    fill: var(--bg);
+    stroke: var(--seg-color);
+    stroke-width: 3;
+  }
+  .orbital.glow .disc,
+  .orbital.glow .ring,
+  .orbital.glow .marker {
+    filter: drop-shadow(0 0 var(--glow) var(--seg-color));
+  }
+
+  /* hide segment-only controls when the orbital face is active */
+  body.face-orbital [data-only="segments"] { display: none; }
+
   /* ---------- Controls ---------- */
   .controls {
     display: grid;
@@ -171,6 +202,16 @@
     <div class="group" data-unit="seconds" data-seconds-group></div>
   </div>
 
+  <svg class="orbital" id="orbital" viewBox="0 0 400 400" aria-label="Orbital watch face">
+    <circle class="disc" cx="200" cy="200" r="95"></circle>
+    <circle class="ring" cx="200" cy="200" r="120"></circle>
+    <circle class="ring" cx="200" cy="200" r="150"></circle>
+    <circle class="ring" cx="200" cy="200" r="180"></circle>
+    <circle class="marker hollow" id="hourMarker" r="16"></circle>
+    <circle class="marker" id="minuteMarker" r="12"></circle>
+    <circle class="marker" id="secondMarker" r="11"></circle>
+  </svg>
+
   <div class="toolbar">
     <button id="menuToggle" title="Hide / show menu" aria-label="Hide or show menu">
       <svg viewBox="0 0 24 24"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
@@ -182,19 +223,24 @@
   </div>
 
   <div class="controls">
+    <div class="control-wide">
+      <button class="toggle active" id="faceSegments" data-face="segments">Segment display</button>
+      <button class="toggle" id="faceOrbital" data-face="orbital">Orbital</button>
+    </div>
+
     <div class="control">
       <label>Size <span class="value" id="sizeVal"></span></label>
       <input type="range" id="size" min="80" max="360" step="10">
     </div>
     <div class="control">
-      <label>Segment colour</label>
+      <label>Colour</label>
       <input type="color" id="segColor">
     </div>
     <div class="control">
       <label>Background</label>
       <input type="color" id="bgColor">
     </div>
-    <div class="control">
+    <div class="control" data-only="segments">
       <label>Off-segment dimness <span class="value" id="offVal"></span></label>
       <input type="range" id="off" min="0" max="30" step="1">
     </div>
@@ -202,12 +248,12 @@
       <label>Glow <span class="value" id="glowVal"></span></label>
       <input type="range" id="glow" min="0" max="40" step="1">
     </div>
-    <div class="control">
+    <div class="control" data-only="segments">
       <label>Slant <span class="value" id="slantVal"></span></label>
       <input type="range" id="slant" min="0" max="20" step="1">
     </div>
 
-    <div class="control-wide">
+    <div class="control-wide" data-only="segments">
       <button class="toggle" id="formatToggle">24-hour</button>
       <button class="toggle" id="secondsToggle">Show seconds</button>
     </div>
@@ -317,6 +363,39 @@
   render();
   setInterval(render, 1000);
 
+  // ----- Orbital face -----
+  var orbital = document.getElementById('orbital');
+  var hourMarker = document.getElementById('hourMarker');
+  var minuteMarker = document.getElementById('minuteMarker');
+  var secondMarker = document.getElementById('secondMarker');
+  var ORBIT = { cx: 200, cy: 200, hour: 120, minute: 150, second: 180 };
+  var orbitalActive = false;
+  var orbitalRAF = null;
+
+  function placeMarker(marker, radius, frac) {
+    var theta = frac * Math.PI * 2 - Math.PI / 2;   // 0 = top, clockwise
+    marker.setAttribute('cx', ORBIT.cx + radius * Math.cos(theta));
+    marker.setAttribute('cy', ORBIT.cy + radius * Math.sin(theta));
+  }
+
+  function renderOrbital() {
+    var now = new Date();
+    var s = now.getSeconds() + now.getMilliseconds() / 1000;
+    var m = now.getMinutes() + s / 60;
+    var h = (now.getHours() % 12) + m / 60;
+    placeMarker(hourMarker, ORBIT.hour, h / 12);
+    placeMarker(minuteMarker, ORBIT.minute, m / 60);
+    placeMarker(secondMarker, ORBIT.second, s / 60);
+  }
+
+  function orbitalLoop() {
+    if (!orbitalActive) return;
+    renderOrbital();
+    orbitalRAF = requestAnimationFrame(orbitalLoop);
+  }
+
+  renderOrbital();   // position markers correctly even before first show
+
   // ----- Controls -----
   function $(id) { return document.getElementById(id); }
 
@@ -381,6 +460,7 @@
     root.style.setProperty('--glow', v + 'px');
     glowVal.textContent = v === 0 ? 'off' : v + 'px';
     clock.classList.toggle('glow', v > 0);
+    orbital.classList.toggle('glow', v > 0);
   });
 
   slant.addEventListener('input', function () {
@@ -402,6 +482,27 @@
     secondsSep.style.display = showSeconds ? '' : 'none';
     if (showSeconds) render();
   });
+
+  // ----- Watch-face switch -----
+  var faceSegments = $('faceSegments');
+  var faceOrbital = $('faceOrbital');
+
+  function setFace(face) {
+    orbitalActive = (face === 'orbital');
+    document.body.classList.toggle('face-orbital', orbitalActive);
+    faceSegments.classList.toggle('active', !orbitalActive);
+    faceOrbital.classList.toggle('active', orbitalActive);
+    if (orbitalActive) {
+      renderOrbital();
+      orbitalLoop();
+    } else if (orbitalRAF) {
+      cancelAnimationFrame(orbitalRAF);
+      orbitalRAF = null;
+    }
+  }
+
+  faceSegments.addEventListener('click', function () { setFace('segments'); });
+  faceOrbital.addEventListener('click', function () { setFace('orbital'); });
 
   // ----- Hide / show menu -----
   var menuToggle = $('menuToggle');
