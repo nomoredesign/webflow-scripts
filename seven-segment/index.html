@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Seven-Segment Clock</title>
+<title>Segment Clock</title>
 <style>
   :root {
     --digit-size: 200px;        /* height of one digit */
@@ -218,30 +218,42 @@
   var root = document.documentElement;
   var clock = document.getElementById('clock');
 
-  // SVG geometry for one seven-segment digit (viewBox 0 0 120 200)
+  // SVG geometry for one 16-segment ("starburst") digit (viewBox 0 0 120 200)
+  //   A1 A2 = split top      G1 G2 = split middle      D1 D2 = split bottom
+  //   F E   = left verticals B C   = right verticals    I L  = centre verticals
+  //   H J K M = the four diagonals
   var SEG_POINTS = {
-    a: '28,18 36,10 84,10 92,18 84,26 36,26',
-    b: '102,28 110,36 110,82 102,90 94,82 94,36',
-    c: '102,110 110,118 110,164 102,172 94,164 94,118',
-    d: '28,182 36,174 84,174 92,182 84,190 36,190',
-    e: '18,110 26,118 26,164 18,172 10,164 10,118',
-    f: '18,28 26,36 26,82 18,90 10,82 10,36',
-    g: '28,100 36,92 84,92 92,100 84,108 36,108'
+    A1: '28,18 34,12 52,12 58,18 52,24 34,24',
+    A2: '62,18 68,12 86,12 92,18 86,24 68,24',
+    F:  '18,28 26,36 26,82 18,90 10,82 10,36',
+    I:  '60,28 66,36 66,82 60,90 54,82 54,36',
+    B:  '102,28 110,36 110,82 102,90 94,82 94,36',
+    G1: '28,100 34,94 52,94 58,100 52,106 34,106',
+    G2: '62,100 68,94 86,94 92,100 86,106 68,106',
+    E:  '18,110 26,118 26,164 18,172 10,164 10,118',
+    L:  '60,110 66,118 66,164 60,172 54,164 54,118',
+    C:  '102,110 110,118 110,164 102,172 94,164 94,118',
+    D1: '28,182 34,176 52,176 58,182 52,188 34,188',
+    D2: '62,182 68,176 86,176 92,182 86,188 68,188',
+    H:  '28.2,34.4 37.8,31.6 54.8,88.6 45.2,91.4',
+    J:  '82.2,31.6 91.8,34.4 74.8,91.4 65.2,88.6',
+    K:  '37.8,168.4 28.2,165.6 45.2,111.4 54.8,108.6',
+    M:  '91.8,165.6 82.2,168.4 65.2,111.4 74.8,108.6'
   };
 
-  // which segments are lit for each character
+  // which segments are lit for each character (zero is slashed via J + K)
   var SEG_MAP = {
-    '0': 'abcdef',
-    '1': 'bc',
-    '2': 'abged',
-    '3': 'abgcd',
-    '4': 'fgbc',
-    '5': 'afgcd',
-    '6': 'afgedc',
-    '7': 'abc',
-    '8': 'abcdefg',
-    '9': 'abcdfg',
-    ' ': ''
+    '0': ['A1', 'A2', 'B', 'C', 'D1', 'D2', 'E', 'F', 'J', 'K'],
+    '1': ['B', 'C'],
+    '2': ['A1', 'A2', 'B', 'G1', 'G2', 'E', 'D1', 'D2'],
+    '3': ['A1', 'A2', 'B', 'C', 'G1', 'G2', 'D1', 'D2'],
+    '4': ['F', 'B', 'G1', 'G2', 'C'],
+    '5': ['A1', 'A2', 'F', 'G1', 'G2', 'C', 'D1', 'D2'],
+    '6': ['A1', 'A2', 'F', 'E', 'G1', 'G2', 'C', 'D1', 'D2'],
+    '7': ['A1', 'A2', 'B', 'C'],
+    '8': ['A1', 'A2', 'B', 'C', 'D1', 'D2', 'E', 'F', 'G1', 'G2'],
+    '9': ['A1', 'A2', 'B', 'C', 'F', 'G1', 'G2', 'D1', 'D2'],
+    ' ': []
   };
 
   var SVGNS = 'http://www.w3.org/2000/svg';
@@ -264,7 +276,7 @@
 
   function setDigit(svg, char) {
     if (svg._current === char) return;
-    var lit = SEG_MAP[char] || '';
+    var lit = SEG_MAP[char] || [];
     Object.keys(svg._segs).forEach(function (key) {
       svg._segs[key].classList.toggle('on', lit.indexOf(key) !== -1);
     });
