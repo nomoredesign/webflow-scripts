@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flip Clock</title>
+<style>
+  :root {
+    --size: 120px;
+    --digit-color: #f4f4f4;
+    --card-color: #1c1c1e;
+    --bg-color: #0a0a0b;
+    --clock-font: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    background: var(--bg-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: system-ui, -apple-system, sans-serif;
+    overflow-x: hidden;
+    transition: background 0.3s ease;
+  }
+
+  /* ---------- Clock ---------- */
+
+  .clock {
+    display: flex;
+    align-items: center;
+    gap: 0.12em;
+    font-size: var(--size);
+    font-family: var(--clock-font);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    user-select: none;
+    padding: 0.3em 0.2em;
+  }
+
+  .group { display: flex; gap: 0.06em; }
+
+  .colon {
+    color: var(--digit-color);
+    font-size: 0.9em;
+    line-height: 1.4em;
+    opacity: 0.85;
+    padding: 0 0.04em;
+    transform: translateY(-0.06em);
+  }
+
+  .digit {
+    position: relative;
+    width: 0.88em;
+    height: 1.4em;
+    perspective: 4em;
+    filter: drop-shadow(0 0.04em 0.08em rgba(0,0,0,0.45));
+  }
+
+  .half, .flap {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 50%;
+    overflow: hidden;
+    background: var(--card-color);
+    color: var(--digit-color);
+    text-align: center;
+  }
+
+  /* Card is 1.4em tall at clock font size. Each half holds a
+     full-card-height glyph and clips to its own 50%. */
+  .half span, .flap span {
+    display: block;
+    width: 100%;
+    height: calc(var(--size) * 1.4);
+    line-height: calc(var(--size) * 1.4);
+    font-size: var(--size);
+  }
+
+  .half.top, .flap.flap-top {
+    top: 0;
+    border-radius: 0.08em 0.08em 0 0;
+  }
+  .half.bottom, .flap.flap-bottom {
+    bottom: 0;
+    border-radius: 0 0 0.08em 0.08em;
+  }
+
+  .half.bottom span, .flap.flap-bottom span {
+    transform: translateY(-50%);
+  }
+
+  /* subtle shading so the two halves read as separate flaps */
+  .half.top::after, .flap.flap-top::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(rgba(255,255,255,0.06), rgba(255,255,255,0));
+    pointer-events: none;
+  }
+  .half.bottom::after, .flap.flap-bottom::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(rgba(0,0,0,0.10), rgba(0,0,0,0));
+    pointer-events: none;
+  }
+
+  /* hinge line */
+  .digit::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    margin-top: -0.5px;
+    background: rgba(0,0,0,0.55);
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .flap {
+    display: none;
+    z-index: 5;
+    backface-visibility: hidden;
+  }
+
+  .flap.flap-top { transform-origin: bottom center; }
+  .flap.flap-bottom { transform-origin: top center; }
+
+  .digit.flipping .flap { display: block; }
+
+  .digit.flipping .flap-top {
+    animation: fold-top 0.28s ease-in forwards;
+  }
+  .digit.flipping .flap-bottom {
+    transform: rotateX(90deg);
+    animation: fold-bottom 0.28s ease-out 0.28s forwards;
+  }
+
+  @keyframes fold-top {
+    from { transform: rotateX(0deg);  filter: brightness(1); }
+    to   { transform: rotateX(-90deg); filter: brightness(0.7); }
+  }
+  @keyframes fold-bottom {
+    from { transform: rotateX(90deg); filter: brightness(0.7); }
+    to   { transform: rotateX(0deg);  filter: brightness(1); }
+  }
+
+  /* ---------- Settings panel ---------- */
+
+  .panel-toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(128,128,128,0.18);
+    color: var(--digit-color);
+    font-size: 20px;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: transform 0.25s ease, background 0.2s ease;
+    z-index: 100;
+  }
+  .panel-toggle:hover { background: rgba(128,128,128,0.32); }
+  .panel-toggle.open { transform: rotate(45deg); }
+
+  .panel {
+    position: fixed;
+    bottom: 76px;
+    right: 20px;
+    width: 280px;
+    padding: 18px;
+    border-radius: 14px;
+    background: rgba(24,24,26,0.92);
+    color: #eee;
+    backdrop-filter: blur(14px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+    display: none;
+    flex-direction: column;
+    gap: 14px;
+    z-index: 100;
+    font-size: 13px;
+  }
+  .panel.open { display: flex; }
+
+  .panel h2 {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .control { display: flex; flex-direction: column; gap: 5px; }
+  .control label { opacity: 0.75; }
+
+  .control-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  input[type="range"] { width: 100%; accent-color: #8b8b95; }
+
+  input[type="color"] {
+    width: 40px;
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  select {
+    width: 100%;
+    padding: 7px 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.06);
+    color: #eee;
+    font-size: 13px;
+  }
+  select option { background: #1c1c1e; }
+
+  .switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .switch {
+    position: relative;
+    width: 40px;
+    height: 22px;
+    flex: none;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch .track {
+    position: absolute;
+    inset: 0;
+    border-radius: 11px;
+    background: rgba(255,255,255,0.18);
+    transition: background 0.2s ease;
+    cursor: pointer;
+  }
+  .switch .track::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.2s ease;
+  }
+  .switch input:checked + .track { background: #4c9e63; }
+  .switch input:checked + .track::after { transform: translateX(18px); }
+
+  .reset-btn {
+    margin-top: 2px;
+    padding: 8px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.1);
+    color: #eee;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .reset-btn:hover { background: rgba(255,255,255,0.18); }
+
+  @media (max-width: 700px) {
+    .clock { flex-wrap: wrap; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+
+<div class="clock" id="clock" aria-label="Flip clock"></div>
+
+<button class="panel-toggle" id="panelToggle" aria-label="Settings">+</button>
+
+<div class="panel" id="panel">
+  <h2>Clock settings</h2>
+
+  <div class="control">
+    <div class="control-row">
+      <label for="sizeInput">Size</label>
+      <span id="sizeValue"></span>
+    </div>
+    <input type="range" id="sizeInput" min="40" max="280" step="2">
+  </div>
+
+  <div class="control">
+    <div class="control-row">
+      <label for="digitColorInput">Digit colour</label>
+      <input type="color" id="digitColorInput">
+    </div>
+  </div>
+
+  <div class="control">
+    <div class="control-row">
+      <label for="cardColorInput">Card colour</label>
+      <input type="color" id="cardColorInput">
+    </div>
+  </div>
+
+  <div class="control">
+    <div class="control-row">
+      <label for="bgColorInput">Background colour</label>
+      <input type="color" id="bgColorInput">
+    </div>
+  </div>
+
+  <div class="control">
+    <label for="fontInput">Font</label>
+    <select id="fontInput">
+      <option value='"Helvetica Neue", Helvetica, Arial, sans-serif'>Helvetica / Sans</option>
+      <option value='Georgia, "Times New Roman", serif'>Georgia / Serif</option>
+      <option value='ui-monospace, "SF Mono", "Cascadia Mono", "Courier New", monospace'>Monospace</option>
+      <option value='"Arial Narrow", "Helvetica Condensed", Impact, sans-serif'>Condensed</option>
+      <option value='"Arial Rounded MT Bold", ui-rounded, "Hiragino Maru Gothic ProN", Quicksand, sans-serif'>Rounded</option>
+      <option value='"Trebuchet MS", Verdana, sans-serif'>Trebuchet</option>
+      <option value='"Courier New", Courier, monospace'>Typewriter</option>
+    </select>
+  </div>
+
+  <div class="switch-row">
+    <label for="format24Input">24-hour</label>
+    <span class="switch">
+      <input type="checkbox" id="format24Input">
+      <span class="track" onclick="document.getElementById('format24Input').click()"></span>
+    </span>
+  </div>
+
+  <div class="switch-row">
+    <label for="secondsInput">Show seconds</label>
+    <span class="switch">
+      <input type="checkbox" id="secondsInput">
+      <span class="track" onclick="document.getElementById('secondsInput').click()"></span>
+    </span>
+  </div>
+
+  <button class="reset-btn" id="resetBtn">Reset to defaults</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var STORAGE_KEY = "flip-clock-settings";
+
+  var DEFAULTS = {
+    size: 120,
+    digitColor: "#f4f4f4",
+    cardColor: "#1c1c1e",
+    bgColor: "#0a0a0b",
+    font: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+    format24: true,
+    seconds: true
+  };
+
+  var settings = loadSettings();
+
+  function loadSettings() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        var merged = {};
+        for (var k in DEFAULTS) {
+          merged[k] = (parsed[k] !== undefined) ? parsed[k] : DEFAULTS[k];
+        }
+        return merged;
+      }
+    } catch (e) { /* fall through to defaults */ }
+    var copy = {};
+    for (var key in DEFAULTS) copy[key] = DEFAULTS[key];
+    return copy;
+  }
+
+  function saveSettings() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    } catch (e) { /* private mode etc. — ignore */ }
+  }
+
+  /* ---------- Apply settings to CSS variables ---------- */
+
+  var rootStyle = document.documentElement.style;
+
+  function applySettings() {
+    rootStyle.setProperty("--size", settings.size + "px");
+    rootStyle.setProperty("--digit-color", settings.digitColor);
+    rootStyle.setProperty("--card-color", settings.cardColor);
+    rootStyle.setProperty("--bg-color", settings.bgColor);
+    rootStyle.setProperty("--clock-font", settings.font);
+    document.getElementById("sizeValue").textContent = settings.size + "px";
+  }
+
+  /* ---------- Build the clock ---------- */
+
+  var clockEl = document.getElementById("clock");
+  var digits = []; // { el, topSpan, bottomSpan, flapTopSpan, flapBottomSpan, value, timer }
+
+  function makeDigit() {
+    var el = document.createElement("div");
+    el.className = "digit";
+    el.innerHTML =
+      '<div class="half top"><span></span></div>' +
+      '<div class="half bottom"><span></span></div>' +
+      '<div class="flap flap-top"><span></span></div>' +
+      '<div class="flap flap-bottom"><span></span></div>';
+    var spans = el.querySelectorAll("span");
+    return {
+      el: el,
+      topSpan: spans[0],
+      bottomSpan: spans[1],
+      flapTopSpan: spans[2],
+      flapBottomSpan: spans[3],
+      value: null,
+      timer: null
+    };
+  }
+
+  function buildClock() {
+    // clear any pending flip timers
+    digits.forEach(function (d) { if (d.timer) clearTimeout(d.timer); });
+    digits = [];
+    clockEl.innerHTML = "";
+
+    var groupCount = settings.seconds ? 3 : 2;
+    for (var g = 0; g < groupCount; g++) {
+      if (g > 0) {
+        var colon = document.createElement("div");
+        colon.className = "colon";
+        colon.textContent = ":";
+        clockEl.appendChild(colon);
+      }
+      var group = document.createElement("div");
+      group.className = "group";
+      for (var i = 0; i < 2; i++) {
+        var d = makeDigit();
+        group.appendChild(d.el);
+        digits.push(d);
+      }
+      clockEl.appendChild(group);
+    }
+
+    renderTime(true);
+  }
+
+  function setDigitInstant(d, val) {
+    d.value = val;
+    d.topSpan.textContent = val;
+    d.bottomSpan.textContent = val;
+    d.el.classList.remove("flipping");
+    if (d.timer) { clearTimeout(d.timer); d.timer = null; }
+  }
+
+  function flipDigit(d, val) {
+    if (d.value === val) return;
+    if (d.timer) {
+      // a flip is still running — commit it instantly, then start the new one
+      clearTimeout(d.timer);
+      d.timer = null;
+      d.el.classList.remove("flipping");
+      d.bottomSpan.textContent = d.topSpan.textContent;
+      // force reflow so re-adding the class restarts the animation
+      void d.el.offsetWidth;
+    }
+    var prev = d.value;
+    d.value = val;
+    d.flapTopSpan.textContent = prev;     // old value folds away
+    d.flapBottomSpan.textContent = val;   // new value folds in
+    d.topSpan.textContent = val;          // revealed behind the top flap
+    d.el.classList.add("flipping");
+    d.timer = setTimeout(function () {
+      d.bottomSpan.textContent = val;
+      d.el.classList.remove("flipping");
+      d.timer = null;
+    }, 600);
+  }
+
+  /* ---------- Time ---------- */
+
+  function timeString() {
+    var now = new Date();
+    var h = now.getHours();
+    if (!settings.format24) {
+      h = h % 12;
+      if (h === 0) h = 12;
+    }
+    var s = pad(h) + pad(now.getMinutes());
+    if (settings.seconds) s += pad(now.getSeconds());
+    return s;
+  }
+
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+
+  function renderTime(instant) {
+    var str = timeString();
+    for (var i = 0; i < digits.length; i++) {
+      var ch = str.charAt(i);
+      if (instant) {
+        setDigitInstant(digits[i], ch);
+      } else {
+        flipDigit(digits[i], ch);
+      }
+    }
+  }
+
+  setInterval(function () { renderTime(false); }, 250);
+
+  /* ---------- Controls ---------- */
+
+  var sizeInput = document.getElementById("sizeInput");
+  var digitColorInput = document.getElementById("digitColorInput");
+  var cardColorInput = document.getElementById("cardColorInput");
+  var bgColorInput = document.getElementById("bgColorInput");
+  var fontInput = document.getElementById("fontInput");
+  var format24Input = document.getElementById("format24Input");
+  var secondsInput = document.getElementById("secondsInput");
+
+  function syncControls() {
+    sizeInput.value = settings.size;
+    digitColorInput.value = settings.digitColor;
+    cardColorInput.value = settings.cardColor;
+    bgColorInput.value = settings.bgColor;
+    fontInput.value = settings.font;
+    if (fontInput.value !== settings.font) fontInput.selectedIndex = 0;
+    format24Input.checked = settings.format24;
+    secondsInput.checked = settings.seconds;
+  }
+
+  sizeInput.addEventListener("input", function () {
+    settings.size = parseInt(sizeInput.value, 10);
+    applySettings();
+    saveSettings();
+  });
+
+  digitColorInput.addEventListener("input", function () {
+    settings.digitColor = digitColorInput.value;
+    applySettings();
+    saveSettings();
+  });
+
+  cardColorInput.addEventListener("input", function () {
+    settings.cardColor = cardColorInput.value;
+    applySettings();
+    saveSettings();
+  });
+
+  bgColorInput.addEventListener("input", function () {
+    settings.bgColor = bgColorInput.value;
+    applySettings();
+    saveSettings();
+  });
+
+  fontInput.addEventListener("change", function () {
+    settings.font = fontInput.value;
+    applySettings();
+    saveSettings();
+  });
+
+  format24Input.addEventListener("change", function () {
+    settings.format24 = format24Input.checked;
+    saveSettings();
+    renderTime(true);
+  });
+
+  secondsInput.addEventListener("change", function () {
+    settings.seconds = secondsInput.checked;
+    saveSettings();
+    buildClock();
+  });
+
+  document.getElementById("resetBtn").addEventListener("click", function () {
+    for (var k in DEFAULTS) settings[k] = DEFAULTS[k];
+    saveSettings();
+    applySettings();
+    syncControls();
+    buildClock();
+  });
+
+  /* ---------- Panel toggle ---------- */
+
+  var panel = document.getElementById("panel");
+  var panelToggle = document.getElementById("panelToggle");
+  panelToggle.addEventListener("click", function () {
+    panel.classList.toggle("open");
+    panelToggle.classList.toggle("open");
+  });
+
+  /* ---------- Init ---------- */
+
+  applySettings();
+  syncControls();
+  buildClock();
+})();
+</script>
+</body>
+</html>
